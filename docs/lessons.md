@@ -1,0 +1,55 @@
+# Lessons from the first setup (July–October 2026)
+
+Everything here was learned the hard way on this box before the 2026-10-22 wipe. Read it before
+re-adding a model. The full pre-wipe audit (unit files, launch scripts, the prefix-cache patch) is in git
+history at commit `f64547d`.
+
+## Hardware facts (GB10)
+
+- **121 GiB unified memory**: CPU and GPU share it, so "VRAM" and RAM are the same pool. One big tenant at a
+  time. Use `Conflicts=` plus `spark-bin/gpu-residency`, never a fixed sleep.
+- Single-stream decode is memory-bandwidth-bound (~225 GB/s real). Smaller weights decode faster, so
+  NVFP4 is the native, fastest format on sm_121.
+- The Wi-Fi link is flaky. For HF downloads set `HF_HUB_DISABLE_XET=1` and wrap them in a resume loop.
+  Check state before you retry anything that starts a process.
+- `sudo` needs the password, so prefer `systemctl --user` units with linger on.
+
+## LLM serving
+
+- **Qwen3.8-Flash-Next (176B MoE, NVFP4)** fits on one Spark only with the **PLE-mmap overlay**, which serves
+  the 44 GiB n-gram table from NVMe. The recipe was `hasso5703/dgx-spark-qwen38` v1.4 (`flash` target), on the
+  official `vllm/vllm-openai:qwen38-flash-next` image. Measured: ~30 tok/s code, ~24 prose, ~2,200 tok/s
+  prefill @60K, 262K ctx, MTP with 2 speculative tokens. The ~31 tok/s ceiling is MoE launch overhead, so
+  tuning flags can't beat it.
+  - Required flags: `-cc.cudagraph_mode=PIECEWISE` with the PLE op in splitting_ops, FlashInfer autotune off.
+  - Prefix caching needed two vLLM patches on sm_121: vllm#48375 (drop the last cached page under MTP) and
+    vllm#53142 (mamba block-size seed). Bake them in with a Dockerfile, not `docker commit`.
+  - Failed to start: FULL cudagraphs, PLE CPU offload, fp8 KV cache. FP8-hybrid checkpoint: no win, reverted.
+- **Qwen3.8-27B NVFP4 (dense)**: vLLM with MTP (3 tokens), or SGLang + DFlash2 at ~50 tok/s on code. The
+  prose cost is 2–3× on any drafter.
+- Put a **keepalive proxy** in front of agent clients. Tool-call parsers buffer arguments and go silent for
+  minutes, and client stall detectors drop the stream. Send the official Anthropic `ping` event, not SSE comments.
+- Hermes/agents: set `max_tokens` per custom model, or the 64K default output reservation overflows the context.
+- Llama + vLLM `llama3_json` allows only one tool call per turn, which is a bad fit for parallel-tool agents.
+
+## Images (ComfyUI)
+
+- FLUX.2 dev NVFP4 + Turbo LoRA at 6 steps with 0.25 MP references: a 2.36 MP image in ~48 s.
+- **Never** `--highvram` or `--gpu-only` on GB10. They pin page-locked memory and hung the machine
+  (`NV_ERR_NO_MEMORY`). Use `--reserve-vram 16 --disable-pinned-memory`.
+- Restart ComfyUI after switching models, because it never evicts them.
+- Don't symlink model files into the HF cache. When the cache was cleaned, the default model silently broke.
+
+## TTS
+
+- IndexTTS-2 holds a narrator's timbre while varying emotion (needed 4 aarch64 patches). VoxCPM2 was the best
+  voice designer. Fish S2 sounded flat (cloning carries prosody and timbre together). MOSS, Maya1 and
+  Qwen3-TTS were tried and not chosen.
+
+## Process lessons (why the box became unreadable)
+
+- Three install methods (upstream installer to system units, hand-made user units, ad-hoc scripts) ended
+  up on top of each other, plus three switch scripts that each knew part of the picture.
+- Unit names drifted from what they ran (`vllm-122b` served the 27B).
+- Loose files in `~`, `*.bak` copies instead of version control, and experiments that services depended on.
+- The fix is [standard.md](standard.md): one repo, one layout, one registry.

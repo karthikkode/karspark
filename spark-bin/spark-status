@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# What the Spark is doing right now. Read-only. `spark-status --brief` is the login banner.
+set -uo pipefail
+mem=$(free -g | awk '/Mem:/ {print $3"/"$2" GiB"}')
+disk=$(df -h / | awk 'NR==2 {print $3"/"$2}')
+echo "── $(hostname) ── $(uptime -p) ── mem $mem ── disk $disk"
+units=$(ls ~/services 2>/dev/null)
+if [ -z "$units" ]; then
+  echo "   no services deployed (see karspark docs/registry.md)"
+else
+  for s in $units; do
+    printf "   %-28s %-9s %s\n" "$s" "$(systemctl --user is-active "$s" 2>/dev/null)" "$(systemctl --user is-enabled "$s" 2>/dev/null)"
+  done
+fi
+[ "${1:-}" = "--brief" ] && exit 0
+echo
+echo "containers:"; docker ps --format '   {{.Names}}  {{.Image}}  {{.Status}}  {{.Ports}}'
+echo "models:";     du -sh ~/models/*/* 2>/dev/null | sed 's/^/   /'
+echo "scratch:";    du -sh ~/scratch/* 2>/dev/null | sed 's/^/   /'
+stray=$(find ~ -mindepth 1 -maxdepth 1 ! -name '.*' ! -name models ! -name engines ! -name services ! -name bin ! -name scratch 2>/dev/null)
+[ -n "$stray" ] && { echo "OFF-STANDARD in ~ (move to scratch/ or delete):"; echo "$stray" | sed 's/^/   /'; }
+exit 0
