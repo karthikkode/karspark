@@ -11,6 +11,7 @@ models:
       --gpus all --ipc=host --memory 24g
       -p 127.0.0.1:${PORT}:8000
       -v ${models}/llm/qwen3-0.6b:/model:ro
+      -e HF_HUB_OFFLINE=1
       vllm/vllm-openai@sha256:6ff5ff0ddf3658d2c2d677dac5ca2d4726ce0156b4371166d918181b210bd4bc
       /model --served-model-name qwen3-0.6b
       --gpu-memory-utilization 0.08 --max-model-len 8192 --max-num-seqs 8

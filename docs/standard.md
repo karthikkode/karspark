@@ -18,6 +18,12 @@ See [architecture.md](architecture.md) for why.
 Nothing else goes in `~`: no loose files, no `*.bak`, no clones in the home root. `spark-status` flags
 anything off-standard.
 
+**HARD RULE: model weights live only in `~/models/<kind>/<name>/`.** Never in a Hugging Face cache, a
+Docker volume, an engine cache or `~/scratch`. Downloads use `--local-dir` with no persistent Xet chunk cache
+(staging is cleaned on success). Every recipe mounts its weights from `${models}` and runs with
+`HF_HUB_OFFLINE=1`, so an engine can never fetch a model into a cache. `render-config.py` refuses recipes
+that break this, and `spark-status` flags any large file outside `~/models`.
+
 **Everything runs in Docker**: the gateway, every engine, downloads, benchmarks. Nothing (Python, CUDA
 libraries, binaries) is installed on the host, so versions can never clash. Images are built from a
 Dockerfile in this repo (`scripts/build-images.sh`, tagged `karspark/...`) or pulled by pinned digest.

@@ -41,6 +41,10 @@ for path in sorted(ROOT.glob("recipes/*/*.yaml")):
             errors.append(f"{where}: looks like a literal secret in cmd")
         if re.search(r"@sha256:|karspark/", cmd) is None and "docker" in cmd:
             errors.append(f"{where}: pin docker images by digest (or use a karspark/ image built here)")
+        if "docker" in cmd and "HF_HUB_OFFLINE=1" not in cmd:
+            errors.append(f"{where}: set -e HF_HUB_OFFLINE=1 (weights come from ${{models}}, never downloaded into a cache)")
+        if "docker" in cmd and "${models}/" not in cmd:
+            errors.append(f"{where}: mount weights from ${{models}}/<kind>/<name>")
         for n in m.get("aliases", []):
             if n in names or n in models:
                 errors.append(f"{where}: alias '{n}' already used")

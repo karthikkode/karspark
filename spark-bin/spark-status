@@ -29,6 +29,8 @@ echo "containers:"; docker ps --format '   {{.Names}}  {{.Status}}  {{.Ports}}'
 echo "models on disk:"; du -sh ~/models/*/* 2>/dev/null | grep -v '\.fetch\.log' | sed 's/^/   /'
 echo "fetches:"; for l in ~/models/*/*.fetch.log; do [ -f "$l" ] && printf '   %s: %s\n' "$(basename "$l" .fetch.log)" "$(tail -c 200 "$l" | tr '\r' '\n' | tail -1)"; done
 echo "scratch:"; du -sh ~/scratch/* 2>/dev/null | sed 's/^/   /'
+big=$(find ~/.cache ~/engines ~/gateway -type f -size +200M 2>/dev/null)
+[ -n "$big" ] && { echo "RULE VIOLATION: large files outside ~/models (model data must live in ~/models):"; echo "$big" | sed 's/^/   /'; }
 stray=$(find ~ -mindepth 1 -maxdepth 1 ! -name '.*' ! -name models ! -name engines ! -name gateway ! -name bin ! -name scratch 2>/dev/null)
 [ -n "$stray" ] && { echo "OFF-STANDARD in ~ (move to scratch/ or delete):"; echo "$stray" | sed 's/^/   /'; }
 exit 0
