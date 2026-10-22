@@ -1,4 +1,4 @@
-# Architecture: one endpoint for every model (proposal, 2026-10-22)
+# Architecture: one endpoint for every model (adopted 2026-10-22)
 
 ## What we want
 
@@ -83,7 +83,24 @@ wrapper we own (`engines/<name>-api`, a small FastAPI app):
 | NVIDIA Dynamo / Triton / KServe | Built for multi-node clusters with Kubernetes. Far too heavy for one box. |
 | One systemd unit per model (what we had) | Exactly what made the box unreadable: many ports, many keys, manual switching. |
 
+## Running several models / engines at once
+
+Every recipe is just a command plus a port, so engines mix freely: vLLM, SGLang, llama.cpp, Python TTS and
+the image wrapper can all be loaded together. `gateway/routing.yaml` (the llama-swap **matrix**) lists the
+combinations allowed to coexist. A request for a model outside the current combination evicts the fewest,
+cheapest models needed to make room. Limits:
+
+- **Memory:** everything loaded together must fit in 121 GiB.
+- **Fractions:** vLLM `--gpu-memory-utilization` and SGLang `--mem-fraction-static` are fractions of the
+  *whole* GPU. Co-resident recipes must have fractions that sum to less than ~0.85, plus a Docker `--memory` cap each.
+- **Behaviour differs per engine:** tool-call parser, chat template and reasoning output come from the
+  engine, so each recipe README records them.
+- **Shared bandwidth:** concurrent models slow each other down.
+
 ## Things to know up front
+
+- **A config reload unloads every loaded model.** `scripts/deploy.sh` only rewrites the config when it
+  actually changed, and warns when that will unload something.
 
 - **Cold starts are real.** The first request to an unloaded model waits for it to load: about 1–2 min for
   the 27B, about 15 min for Flash-Next. Clients need long timeouts, or you preload from `/ui`.

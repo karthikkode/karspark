@@ -1,34 +1,59 @@
 # karspark
 
-The one place that defines what runs on our **DGX Spark** (`edgexpert-bd12`, GB10, 121 GiB unified memory).
+Defines everything that runs on our **DGX Spark** (`edgexpert-bd12`, GB10, 121 GiB unified memory).
 If it isn't in this repo, it isn't supposed to be on the Spark.
 
-**Current state (2026-10-22): wiped to the OS. No models, no services.** See [docs/registry.md](docs/registry.md).
+## One endpoint for every model
 
-## How it works
+```
+http://100.101.249.74:8080/v1      OpenAI-compatible (chat, embeddings, audio, images) + Anthropic /v1/messages
+Authorization: Bearer <KARSPARK_API_KEY>       (key lives in ~/gateway/env on the Spark)
+http://100.101.249.74:8080/ui      dashboard: loaded models, logs, load/unload
+```
 
-- [docs/standard.md](docs/standard.md): the fixed layout on the box and the checklist for adding anything.
-- [docs/registry.md](docs/registry.md): the table of what's deployed, ports, memory, boot status.
-- [docs/lessons.md](docs/lessons.md): what we learned the first time (recipes, GB10 gotchas). Read it before re-adding a model.
-- `services/<name>/`: one folder per service (README, unit, launch script, env.example). Start from `services/_template/`.
-- `spark-bin/`: tools installed to `~/bin` on the Spark (`gpu-residency`, `spark-status`).
+The key works as `Authorization: Bearer <key>` or `x-api-key: <key>` (Anthropic SDKs). The `/ui` page
+asks the browser for a login: any username, with the key as the password.
+
+The gateway is **llama-swap**. Ask for a model by name, and it starts that model's backend on demand
+(stopping whatever has to make room), proxies the request, and unloads the model when it goes idle. Each
+model can have several **recipes** (engine + flags), named `<model>:<recipe>`. The bare `<model>` alias
+points at the default recipe.
+
+Get the key on the laptop:
+
+```bash
+ssh spark "sed -n 's/^KARSPARK_API_KEY=//p' ~/gateway/env"
+```
+
+What's deployed: [docs/registry.md](docs/registry.md).
+
+## Docs
+
+- [docs/architecture.md](docs/architecture.md): why a single gateway, and how recipes and coexistence work
+- [docs/standard.md](docs/standard.md): layout and the checklist for adding a model
+- [docs/registry.md](docs/registry.md): recipes, engines and ports actually on the box
+- [docs/lessons.md](docs/lessons.md): working recipes and GB10 traps from the first setup
 
 ## Commands
 
-See what's running (the same summary prints when you SSH in):
+Status (the same summary prints when you SSH in):
 
 ```bash
 scripts/status.sh
 ```
 
-Deploy a service (copies files and installs the unit; doesn't start it):
+Download weights at a pinned revision:
 
 ```bash
-scripts/deploy.sh <service>
+scripts/fetch-model.sh <hf-repo> <revision-sha> <kind>/<name>
+```
+
+Render + validate + push the gateway config (llama-swap hot-reloads, so the endpoint never drops):
+
+```bash
+scripts/deploy.sh
 ```
 
 ## Access
 
-- `ssh spark`: Tailscale, `100.101.249.74`, works anywhere.
-- `ssh spark-lan`: `192.168.1.20`, at home.
-- Keyless SSH; `sudo` needs the password.
+`ssh spark` (Tailscale, works anywhere) · `ssh spark-lan` (`192.168.29.130`, at home) · `sudo` needs the password.

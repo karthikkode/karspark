@@ -1,0 +1,18 @@
+[Unit]
+Description=karspark gateway (llama-swap): the single model endpoint on :8080
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/gateway/env
+# --watch-config reloads ~/gateway/config.yaml on change, so deploys never drop the endpoint.
+ExecStart=%h/engines/llama-swap/current/llama-swap --config %h/gateway/config.yaml --listen 0.0.0.0:8080 --watch-config
+Restart=always
+RestartSec=5
+# Give backends time to stop: llama-swap runs each recipe's cmdStop on shutdown.
+TimeoutStopSec=120
+KillMode=mixed
+
+[Install]
+WantedBy=default.target

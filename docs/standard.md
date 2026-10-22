@@ -1,63 +1,67 @@
 # The standard: how anything gets onto the Spark
 
-The Spark was wiped to the OS on 2026-10-22. From here on, **nothing lands on the box except through
-this repo.** If it isn't in the repo, it isn't supposed to be on the Spark.
+Nothing lands on the box except through this repo. **One user-facing service exists: the karspark
+gateway** (llama-swap on `:8080`). Every model, whether text, TTS or image, is a *recipe* behind it.
+See [architecture.md](architecture.md) for why.
 
 ## Layout on the Spark (fixed)
 
 ```
 ~/
+├── gateway/                  config.yaml (RENDERED from this repo, never hand-edited) + env (API key, 600)
 ├── models/<kind>/<name>/     weights only. kind = llm | image | audio | vision
-├── engines/<engine>/         shared runtimes: venvs, source checkouts (e.g. engines/vllm, engines/comfyui)
-├── services/<service>/       one dir per service, deployed from this repo: launch.sh, env (secret, 600)
-├── bin/                      helpers deployed from repo spark-bin/ (gpu-residency, spark-status)
-└── scratch/                  the ONLY place for ad-hoc experiments. Disposable and never referenced by a service
+├── engines/<engine>/         runtimes: llama-swap/<ver>, hf-cli venv, our TTS/image API wrappers
+├── bin/                      helpers deployed from repo spark-bin/ (ks-docker, gpu-residency, spark-status)
+└── scratch/                  the ONLY place for ad-hoc work. Disposable; nothing may depend on it
 ```
 
-Nothing else goes in `~`. No loose `*.py` or `*.sh` files, no `*.bak`, no clones in the home root.
-Upstream recipe repos are cloned under `engines/` or `scratch/`, never into `~`.
-
-Docker images are tagged `karspark/<service>:<version>` and built from a Dockerfile in
-`services/<service>/`. **Never use `docker commit`**: an image nobody can rebuild is a liability, and a
-committed image bakes the container's command line, API keys included, into its metadata.
+Nothing else goes in `~`: no loose files, no `*.bak`, no clones in the home root. `spark-status` flags
+anything off-standard.
 
 ## Layout in this repo
 
 ```
-services/<service>/
-  README.md        what it is, model + revision, engine + version, port, memory, how measured, sources
-  service.unit     systemd --user unit (installed as ~/.config/systemd/user/<service>.service)
-  launch.sh        the exact command; reads secrets from ~/services/<service>/env
-  env.example      variable NAMES only, never values
-  Dockerfile       if it runs in a container
-spark-bin/         tools copied to ~/bin on deploy
-docs/registry.md   the single table of what is deployed, ports, memory, boot status
+gateway/              VERSION (llama-swap), config.base.yaml, routing.yaml (who may run together), unit
+recipes/<model>/      README.md (weights repo + revision, recipe table, measurements) + one <recipe>.yaml per recipe
+engines/<engine>/     README.md (pinned image digest / version) + Dockerfile for any custom image
+spark-bin/            tools copied to ~/bin on deploy
+scripts/              render-config.py, deploy.sh, fetch-model.sh, status.sh
+docs/registry.md      what is deployed, measured numbers, status
 ```
 
-## Adding a model or service: checklist
+## Names
 
-1. **Decide and record.** Add a row to `docs/registry.md` with status `planned`: name, kind, port,
-   expected memory, why it's needed. Pick a port from the port plan there.
-2. **Download** into `~/models/<kind>/<name>/` with a pinned revision:
-   `HF_HUB_DISABLE_XET=1 hf download <repo> --revision <sha> --local-dir ~/models/<kind>/<name>`
-   (Xet hangs on the Spark's Wi-Fi). Write the repo + revision into the service README.
-3. **Write the service** from `services/_template/`. Rules:
-   - binds `0.0.0.0` only with `--api-key`; anything without auth binds `127.0.0.1`
-   - GPU services: `Conflicts=` every other GPU service, plus `ExecStartPre=%h/bin/gpu-residency <GiB> …`
-   - `Restart=on-failure`, a `StartLimitBurst` so a broken config can't loop through 10-minute weight loads
-   - secrets live only in `~/services/<service>/env` (chmod 600)
-4. **Deploy:** `scripts/deploy.sh <service>`. It copies the files and installs the unit, but doesn't start it.
-5. **Start and verify:** `ssh spark 'systemctl --user start <service>'`, then `/v1/models` plus one real request.
-   Write the measured numbers (tok/s, memory, load time) into the service README.
-6. **Boot:** at most **one** GPU service is `enabled`. Record which one in the registry.
-7. **Commit** the service dir and the registry row together. Status becomes `deployed`.
+- Model folder and weights dir: `<model>` in lowercase, e.g. `qwen3.8-27b`.
+- Recipe id: **`<model>:<recipe>`**, e.g. `qwen3.8-27b:vllm-mtp`, `qwen3.8-27b:sglang-dflash2`.
+- The default recipe carries the alias **`<model>`**, which is what clients normally ask for. Switching the
+  default means moving the alias. Clients don't change.
+- Containers: `ks-<model>-<recipe>`. Custom images: `karspark/<engine>-<variant>:<ver>`.
 
-## Removing something
+## Adding a model: checklist
 
-Stop and disable the unit, delete its `~/services/<service>` dir, unit file and model dir, then mark the
-registry row `removed (date, reason)`. Delete the service dir from the repo; git history keeps it.
+1. **Registry row** in `docs/registry.md` with status `planned` (what, why, expected memory).
+2. **Weights:** `scripts/fetch-model.sh <hf-repo> <40-char-sha> <kind>/<name>`. Always pin the revision.
+3. **Engine:** if the recipe needs an image we don't have, add `engines/<engine>/README.md` with the
+   **digest**, or a Dockerfile for a custom build. Pull or build it on the Spark. Never `docker commit`.
+4. **Recipe:** `recipes/<model>/<recipe>.yaml` plus the README table row. Rules, which `render-config.py`
+   enforces:
+   - backend binds `-p 127.0.0.1:${PORT}:…`, never all interfaces
+   - Docker images are pinned by digest (or are `karspark/` images built here), and `cmdStop` is set
+   - no secrets in recipes
+   - an explicit `--gpu-memory-utilization` / memory cap, sized for the routing sets it's in
+5. **Routing:** add the model to a set in `gateway/routing.yaml` only if it may run alongside others.
+   A model in no set runs alone, which is right for anything big.
+6. **Deploy:** `scripts/deploy.sh`. It renders, validates, pushes, and llama-swap hot-reloads.
+7. **Verify** through the gateway with the key: `/v1/models`, one real request, then measure memory and
+   load time and write them in the recipe README and registry.
+8. **Commit** recipe + registry together.
+
+## Removing a model or recipe
+
+Delete the recipe file and any routing references, deploy, delete the weights dir on the Spark if no other
+recipe uses them, and mark the registry row `removed (date, reason)`.
 
 ## Experiments
 
-Experiments are welcome, but only in `~/scratch/<date>-<topic>/`. When one works, promote it through the
-checklist. When it doesn't, `rm -rf` the folder. A service must never depend on anything in `scratch/`.
+Only in `~/scratch/<date>-<topic>/`. When one works, promote it through the checklist. When it doesn't,
+delete the folder.

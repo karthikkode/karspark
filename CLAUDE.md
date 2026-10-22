@@ -3,27 +3,32 @@
 This repo is the source of truth for the DGX Spark `edgexpert-bd12`. Follow `docs/standard.md` for
 everything. No exceptions, and no "quick" installs.
 
+## The one rule
+**The karspark gateway (llama-swap, `:8080`) is the only user-facing service.** Every model, whether text,
+TTS or image, is a recipe in `recipes/<model>/<recipe>.yaml` behind it. Never add a standalone systemd
+unit, a public port, or a second API key for a model.
+
 ## Rules
-- Nothing goes on the Spark except through this repo: a `services/<name>/` folder, a row in
-  `docs/registry.md`, then `scripts/deploy.sh <name>`. Update the registry in the same commit.
-- Spark layout is fixed: `~/models/<kind>/<name>`, `~/engines/<engine>`, `~/services/<service>`, `~/bin`,
-  `~/scratch`. Never leave files loose in `~`, never write `*.bak` copies (git is the history), and never
-  let a service depend on `~/scratch`.
-- `spark-status` flags anything off-standard in `~`. Clean it up or ask the user.
-- One GPU service at a time (121 GiB unified). Every GPU unit gets `Conflicts=` with the others plus
-  `ExecStartPre=%h/bin/gpu-residency <GiB>`. At most one GPU unit is enabled at boot.
-- Docker images come from a Dockerfile in the service folder and are tagged `karspark/<service>:<ver>`.
-  Never `docker commit`.
-- Secrets live only in `~/services/<service>/env` (chmod 600) on the Spark. The repo holds `env.example`
-  with names only. Never print a key. Read it inside the remote command.
-- Anything bound to `0.0.0.0` must require `--api-key`. Otherwise bind `127.0.0.1`.
+- Changes flow repo → Spark: edit the recipes/routing, then `scripts/deploy.sh` (it renders, validates and
+  hot-reloads). Never hand-edit `~/gateway/config.yaml` on the box.
+- Update `docs/registry.md` and the recipe README in the same commit as the change.
+- Recipe ids are `<model>:<recipe>`. The default recipe carries the bare `<model>` alias. Routing sets in
+  `gateway/routing.yaml` use matrix vars (set expressions can't contain `:`).
+- Backends bind `127.0.0.1:${PORT}` only. Images are pinned by digest or built from a Dockerfile here as
+  `karspark/...`. Never `docker commit`.
+- vLLM/SGLang memory fractions are of the whole 121 GiB. Models in the same routing set must fit together.
+- Weights go in `~/models/<kind>/<name>` via `scripts/fetch-model.sh`, at a pinned 40-char revision.
+- Spark layout is fixed: `~/gateway`, `~/models`, `~/engines`, `~/bin`, `~/scratch`. Nothing loose in `~`,
+  no `*.bak` (git is the history), and nothing may depend on `~/scratch`.
+- Secrets: only `~/gateway/env` (chmod 600) on the Spark. Never print the key or commit it. Read it inside
+  the remote command.
 
 ## Access
-- `ssh spark` (Tailscale) / `ssh spark-lan` (home LAN). Use single-line `ssh spark '…'` commands.
+- `ssh spark` (Tailscale) / `ssh spark-lan` (home LAN, `192.168.29.130`, DHCP). Use single-line `ssh spark '…'`.
 - The Wi-Fi drops sometimes, so check state before you retry anything that starts a process.
-- `sudo` needs the user's password. Hand them the exact commands. Prefer `systemctl --user`.
+- `sudo` needs the user's password. Hand them the exact commands.
 - Never delete `~/.ssh`, `~/.local/share/keyrings`, or Tailscale state. Losing them loses the box.
 
 ## Before a restart or a big download
-Ask first. Loading a model takes minutes, and downloads over the Wi-Fi take hours.
+Ask first. A big model takes up to ~15 min to load, and downloads over the Wi-Fi take hours.
 Read `docs/lessons.md` before adding any model. It has the working recipes and the traps.

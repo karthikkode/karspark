@@ -1,0 +1,26 @@
+# karspark gateway: global llama-swap settings.
+# scripts/render-config.py merges this with gateway/routing.yaml and every recipes/*/*.yaml
+# into ~/gateway/config.yaml on the Spark. Never edit the rendered file on the box.
+
+# Big models take minutes to load (Flash-Next ~15 min), so wait long before giving up.
+healthCheckTimeout: 1800
+logLevel: info
+logToStdout: "proxy"
+
+# Backends get ports from here up, bound to 127.0.0.1 by each recipe. Only the gateway is public.
+startPort: 10001
+
+# Unload idle models after an hour unless a recipe says otherwise.
+globalTTL: 3600
+# docker stop needs longer than the 10 s default to tear down a large model cleanly.
+unloadTimeout: 60
+sendLoadingState: true
+
+# The only credential clients need. Value lives in ~/gateway/env on the Spark.
+apiKeys:
+  - "${env.KARSPARK_API_KEY}"
+
+macros:
+  models: "${env.HOME}/models"
+  # Start a backend container: removes a stale container of the same name first, then execs docker run.
+  ks-docker: "${env.HOME}/bin/ks-docker"

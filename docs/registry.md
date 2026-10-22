@@ -1,27 +1,32 @@
 # Registry: what is on the Spark
 
-The single source of truth for what's deployed. Update it in the same commit as any change on the box
-(see [standard.md](standard.md)).
+One endpoint: **`http://100.101.249.74:8080`** (Tailscale) — OpenAI-compatible (`/v1/...`) and Anthropic
+`/v1/messages`. Auth: `Authorization: Bearer <key>`; the key is `KARSPARK_API_KEY` in `~/gateway/env` on
+the Spark. UI: `/ui`.
 
-## Services
+## Recipes
 
-| service | kind | model (repo @ revision) | engine | port | memory | boot | status |
+| recipe id | alias | kind | weights | engine | memory | load time | status |
 |---|---|---|---|---|---|---|---|
-| — | | | | | | | *nothing deployed (box wiped to OS 2026-10-22)* |
+| `qwen3-0.6b:vllm` | `qwen3-0.6b` | llm | `Qwen/Qwen3-0.6B@c1899de2` | vLLM 0.32.0 | ~13 GiB (0.08 util) | 116 s cold (first run, incl. compile) | deployed 2026-10-22 |
 
-## Port plan
+## Engines on the box
 
-| range | use |
-|---|---|
-| 8000–8009 | LLM servers (OpenAI-compatible) |
-| 8010–8019 | proxies / gateways in front of LLMs |
-| 8100–8199 | audio (TTS / STT) |
-| 8188 | ComfyUI (localhost only) |
-| 8200–8299 | other APIs |
+| engine | version / digest | where |
+|---|---|---|
+| llama-swap (the gateway) | v265 | `~/engines/llama-swap/current` |
+| vLLM | `vllm/vllm-openai:v0.32.0-aarch64@sha256:6ff5ff0d…` | Docker |
+| hf-cli | huggingface_hub 2.2.0 | `~/engines/hf-cli` |
+
+## Ports
+
+| port | bind | what |
+|---|---|---|
+| 22 | all | sshd |
+| **8080** | all | **karspark gateway**, the only user-facing port |
+| 10001+ | 127.0.0.1 | backends, assigned by the gateway (`${PORT}`) |
 
 ## Box baseline (after wipe, 2026-10-22)
 
-- DGX OS (Ubuntu 24.04 base), NVIDIA driver 580.178.04, CUDA 13.0, Docker + NVIDIA runtime, Tailscale.
-- Disk: 42 GB used of 3.7 TB. Memory: 118 of 121 GiB available.
-- Home holds only `.ssh`, `.bashrc`, `.profile`, `.bash_logout`, `.local/share/keyrings`
-  (kept in case it holds the Wi-Fi password).
+DGX OS 7.6.0 (Ubuntu 24.04 base), NVIDIA driver 580.178.04, CUDA 13.0, Docker + NVIDIA runtime, Tailscale.
+LAN IP `192.168.29.130` (DHCP, Wi-Fi). Kept in `~`: `.ssh`, default dotfiles, `.local/share/keyrings`.

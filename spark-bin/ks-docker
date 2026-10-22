@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Backend launcher used by gateway recipes: ks-docker <container-name> <docker run args...>
+#
+# llama-swap runs `cmd` directly (no shell), so this is where the shell work lives:
+# a container left behind by a crash would make `docker run --name` fail, so remove it first,
+# then exec so llama-swap owns the docker client process and its stdout.
+set -euo pipefail
+NAME="${1:?usage: ks-docker <name> <docker run args...>}"
+shift
+docker rm -f "$NAME" >/dev/null 2>&1 || true
+exec docker run --rm --init --name "$NAME" "$@"

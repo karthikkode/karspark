@@ -4,19 +4,31 @@ set -uo pipefail
 mem=$(free -g | awk '/Mem:/ {print $3"/"$2" GiB"}')
 disk=$(df -h / | awk 'NR==2 {print $3"/"$2}')
 echo "── $(hostname) ── $(uptime -p) ── mem $mem ── disk $disk"
-units=$(ls ~/services 2>/dev/null)
-if [ -z "$units" ]; then
-  echo "   no services deployed (see karspark docs/registry.md)"
-else
-  for s in $units; do
-    printf "   %-28s %-9s %s\n" "$s" "$(systemctl --user is-active "$s" 2>/dev/null)" "$(systemctl --user is-enabled "$s" 2>/dev/null)"
-  done
+
+key="$(sed -n 's/^KARSPARK_API_KEY=//p' ~/gateway/env 2>/dev/null)"
+gw="$(systemctl --user is-active karspark-gateway 2>/dev/null)"
+echo "   gateway :8080  $gw   (UI: http://<spark>:8080/ui)"
+if [ "$gw" = active ]; then
+  read -r -d '' py <<'PY'
+import sys, json
+try:
+    r = json.load(sys.stdin).get("running", [])
+except Exception:
+    r = []
+loaded = ", ".join("%s (%s, ttl %ss)" % (m.get("model"), m.get("state"), m.get("ttl")) for m in r)
+print("   loaded: " + (loaded or "none (models load on first request)"))
+PY
+  curl -s -m4 localhost:8080/running -H "Authorization: Bearer $key" 2>/dev/null | python3 -c "$py"
+  n=$(curl -s -m4 localhost:8080/v1/models -H "Authorization: Bearer $key" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)["data"]))' 2>/dev/null)
+  echo "   recipes available: ${n:-?}"
 fi
 [ "${1:-}" = "--brief" ] && exit 0
+
 echo
-echo "containers:"; docker ps --format '   {{.Names}}  {{.Image}}  {{.Status}}  {{.Ports}}'
-echo "models:";     du -sh ~/models/*/* 2>/dev/null | sed 's/^/   /'
-echo "scratch:";    du -sh ~/scratch/* 2>/dev/null | sed 's/^/   /'
-stray=$(find ~ -mindepth 1 -maxdepth 1 ! -name '.*' ! -name models ! -name engines ! -name services ! -name bin ! -name scratch 2>/dev/null)
+echo "containers:"; docker ps --format '   {{.Names}}  {{.Status}}  {{.Ports}}'
+echo "models on disk:"; du -sh ~/models/*/* 2>/dev/null | grep -v '\.fetch\.log' | sed 's/^/   /'
+echo "fetches:"; for l in ~/models/*/*.fetch.log; do [ -f "$l" ] && printf '   %s: %s\n' "$(basename "$l" .fetch.log)" "$(tail -c 200 "$l" | tr '\r' '\n' | tail -1)"; done
+echo "scratch:"; du -sh ~/scratch/* 2>/dev/null | sed 's/^/   /'
+stray=$(find ~ -mindepth 1 -maxdepth 1 ! -name '.*' ! -name models ! -name engines ! -name gateway ! -name bin ! -name scratch 2>/dev/null)
 [ -n "$stray" ] && { echo "OFF-STANDARD in ~ (move to scratch/ or delete):"; echo "$stray" | sed 's/^/   /'; }
 exit 0
