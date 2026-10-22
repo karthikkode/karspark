@@ -12,10 +12,10 @@ case "$DEST" in llm/*|image/*|audio/*|vision/*) ;; *) echo "kind must be llm|ima
 [[ "$REV" =~ ^[0-9a-f]{40}$ ]] || { echo "revision must be a full 40-char commit sha" >&2; exit 1; }
 NAME="ks-fetch-$(basename "$DEST")"
 
-ssh "$HOST" "mkdir -p ~/models/$DEST && cd ~/models && setsid nohup bash -c '
+ssh "$HOST" "mkdir -p ~/models/$DEST ~/engines/hf-cli/cache && cd ~/models && setsid nohup bash -c '
   for i in \$(seq 1 50); do
     docker rm -f $NAME >/dev/null 2>&1
-    docker run --rm --name $NAME --user \$(id -u):\$(id -g) -v ~/models:/models karspark/hf-cli:2.2.0 \
+    docker run --rm --name $NAME --user \$(id -u):\$(id -g) -v ~/models:/models -v ~/engines/hf-cli/cache:/tmp/.cache/huggingface karspark/hf-cli:2.2.0-xet1.7.0 \
       download $REPO --revision $REV --local-dir /models/$DEST && { echo FETCH-OK; exit 0; }
     echo \"retry \$i\"; sleep 20
   done; echo FETCH-FAILED; exit 1' > ~/models/$DEST.fetch.log 2>&1 < /dev/null &"
