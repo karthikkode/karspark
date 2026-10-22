@@ -1,0 +1,8 @@
+# secrets never live here
+api-key
+*.env
+env
+.env*
+# scratch
+*.log
+__pycache__/

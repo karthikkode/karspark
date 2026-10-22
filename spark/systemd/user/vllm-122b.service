@@ -1,0 +1,24 @@
+[Unit]
+Description=vLLM Qwen3.5-122B server (qwen35-122b) on DGX Spark
+After=network-online.target
+Wants=network-online.target
+Conflicts=comfyui.service
+# The two never fit together in 121 GB of unified memory. Declared on BOTH units: the
+# implicit reverse dependency exists, but stating it here is what makes the pairing
+# readable to whoever debugs the next OOM at startup.
+
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+# Conflicts= stops ComfyUI but returns before the kernel has reclaimed its pages, and
+# vLLM measures free memory in its own first second. That race -- not a bad install --
+# is what failed this unit on 2026-08-01 with 86.46 of a required 97.35 GiB free.
+ExecStartPre=/bin/bash /home/karthik/kathawin-work/bin/gpu_residency.sh 100 comfyui
+ExecStart=/bin/bash /home/karthik/vllm-env/serve-qwen35-122b.sh
+Restart=on-failure
+RestartSec=15
+TimeoutStartSec=1200
+KillMode=mixed
+
+[Install]
+WantedBy=default.target
