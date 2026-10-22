@@ -6,7 +6,7 @@ models:
   "comfyui_auto":
     name: "ComfyUI (FLUX.2 dev NVFP4 + Turbo, LTX-2.5)"
     description: "images: model flux2-dev via /v1/images/generations; video: /upstream/comfyui_auto/v1/videos/generations; UI: /comfyui/"
-    aliases: ["flux2-dev", "ltx-2.5"]
+    aliases: ["flux2-dev", "ltx-2.5", "qwen-image-layered"]
     checkEndpoint: /health
     compat:
       ignoreWebsockets: true
