@@ -1,12 +1,8 @@
 # Engine: hf-cli (model downloads)
 
-A venv at `~/engines/hf-cli` with `huggingface_hub` **2.2.0**, used only by `scripts/fetch-model.sh`.
+Image `karspark/hf-cli:2.2.0`: `python:3.12-slim` (pinned by digest) + `huggingface_hub==2.2.0`, built from
+the [Dockerfile](Dockerfile) by `scripts/build-images.sh`. Used only by `scripts/fetch-model.sh`. It runs as
+uid 1000 with `~/models` mounted, so nothing gets installed on the host.
 
-Rebuild it:
-
-```bash
-ssh spark 'python3 -m venv ~/engines/hf-cli && ~/engines/hf-cli/bin/pip install huggingface_hub==2.2.0'
-```
-
-Always download with `HF_HUB_DISABLE_XET=1`, because Xet transfers stall on the Spark's Wi-Fi, and always
-pin a revision.
+Always download with a pinned revision. `HF_HUB_DISABLE_XET=1` is baked in, because Xet transfers stall on
+the Spark's Wi-Fi.

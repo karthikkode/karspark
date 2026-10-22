@@ -1,0 +1,28 @@
+#!/bin/sh
+# Backend launcher used by gateway recipes: ks-docker <container-name> <docker run args...>
+# Runs INSIDE the gateway container, talking to the host's Docker through the mounted socket, so every
+# path in a recipe is a HOST path.
+#
+# llama-swap runs `cmd` directly (no shell), so the shell work lives here:
+#  1. a container left behind by a crash would make `docker run --name` fail, so remove it first;
+#  2. if the recipe sets KS_NEED_GIB, wait until that much memory is really free. On unified memory a
+#     stopped model takes a while to hand its pages back, and vLLM sizes itself from free memory in its
+#     first second. /proc/meminfo inside a container reports the host's numbers;
+#  3. exec, so llama-swap owns the docker client process and its output.
+set -eu
+NAME="${1:?usage: ks-docker <name> <docker run args...>}"
+shift
+docker rm -f "$NAME" >/dev/null 2>&1 || true
+
+if [ -n "${KS_NEED_GIB:-}" ]; then
+  waited=0
+  while :; do
+    avail=$(awk '/MemAvailable/ {printf "%d", $2/1048576}' /proc/meminfo)
+    [ "$avail" -ge "$KS_NEED_GIB" ] && break
+    [ "$waited" -ge "${KS_WAIT_S:-300}" ] && { echo "[ks-docker] only ${avail} GiB free, need ${KS_NEED_GIB}" >&2; exit 75; }
+    echo "[ks-docker] ${avail}/${KS_NEED_GIB} GiB free, waiting" >&2
+    sleep 5; waited=$((waited + 5))
+  done
+fi
+
+exec docker run --rm --init --name "$NAME" "$@"

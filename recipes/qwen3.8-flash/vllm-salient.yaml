@@ -1,0 +1,45 @@
+# The default model. Flags are upstream salient-data build 2026-10-14-77154ca6 (engines/vllm-salient/upstream/
+# serve.args + serve.env), unchanged except --served-model-name. It runs alone (in no routing set).
+models:
+  "qwen3.8-flash:vllm-salient":
+    name: "Qwen3.8-Flash-Next NVFP4 (vLLM, salient recipe)"
+    description: "default model: 176B MoE, 262K ctx, MTP, thinking off by default (chat_template_kwargs.enable_thinking)"
+    aliases: ["qwen3.8-flash"]
+    useModelName: "qwen3.8-flash"
+    # The default model stays loaded until something else needs the memory.
+    ttl: 0
+    env:
+      # ks-docker waits until this much memory is actually free (a previous model may still be unmapping).
+      - "KS_NEED_GIB=100"
+    cmd: |
+      ${ks-docker} ks-qwen3.8-flash-vllm-salient
+      --gpus all --ipc host --shm-size 32g --ulimit memlock=-1:-1
+      --memory 112g --memory-swap 112g
+      -p 127.0.0.1:${PORT}:8000
+      -v ${models}/llm/qwen3.8-flash-next-nvfp4:/model:ro
+      -v ${engines}/vllm-salient/cache:/root/.cache
+      -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1
+      -e VLLM_ENGINE_READY_TIMEOUT_S=3600
+      -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      -e VLLM_PLE_FILE_GATHER_WORKERS=64
+      -e QWEN4EXP_DRAFT_VOCAB=0
+      -e VLLM_USE_V2_MODEL_RUNNER=1
+      -e QWEN38_FP8_DENSE=gdn,attn,shared,mtp,lm_head
+      --entrypoint vllm
+      karspark/vllm-salient:2026-10-14-77154ca6
+      serve /model --host 0.0.0.0 --port 8000
+      --served-model-name qwen3.8-flash
+      --trust-remote-code --quantization modelopt --tensor-parallel-size 1
+      --max-model-len 262144 --max-num-seqs 6
+      --gpu-memory-utilization 0.80 --max-num-batched-tokens 4096
+      --engram-config '{"host_file_gather": true}'
+      --compilation-config '{"mode": 0, "cudagraph_mode": "FULL_DECODE_ONLY"}'
+      --no-enable-flashinfer-autotune
+      --reasoning-parser qwen3
+      --enable-auto-tool-choice --tool-call-parser qwen3_xml
+      --default-chat-template-kwargs '{"enable_thinking": false}'
+      --kv-cache-dtype fp8_e4m3 --use-replayssm --kv-cache-dtype-skip-layers 48
+      --mamba-ssm-cache-dtype bfloat16
+      --enable-prefix-caching
+      --speculative-config '{"method": "mtp", "num_speculative_tokens": 6, "draft_confidence_threshold": 0.7, "draft_confidence_fallback_depth": 3, "draft_token_map": "/root/.cache/draft-token-maps/d22ff5232d12f6935add32541a2a447976349217e5b125669fab0e92e3e2a20b.json", "draft_token_map_dynamic_rows": 16384, "draft_token_map_dynamic_rank": 256, "draft_token_map_quantization": "nvfp4"}'
+    cmdStop: docker stop -t 60 ks-qwen3.8-flash-vllm-salient

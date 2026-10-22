@@ -8,15 +8,22 @@ the Spark. UI: `/ui`.
 
 | recipe id | alias | kind | weights | engine | memory | load time | status |
 |---|---|---|---|---|---|---|---|
-| `qwen3-0.6b:vllm` | `qwen3-0.6b` | llm | `Qwen/Qwen3-0.6B@c1899de2` | vLLM 0.32.0 | ~13 GiB (0.08 util) | 116 s cold (first run, incl. compile) | deployed 2026-10-22 |
+| `qwen3-0.6b:vllm` | `qwen3-0.6b` | llm | `Qwen/Qwen3-0.6B@c1899de2` | vLLM 0.32.0 | ~13 GiB (0.08 util) | ~112 s cold | deployed 2026-10-22 |
+| `qwen3.8-flash:vllm-salient` | **`qwen3.8-flash`** (default) | llm | `nvidia/Qwen3.8-Flash-Next-NVFP4@fc694b54` | vllm-salient 2026-10-14-77154ca6 | ~100 GiB, runs alone | — | weights downloading |
 
 ## Engines on the box
 
 | engine | version / digest | where |
 |---|---|---|
-| llama-swap (the gateway) | v265 | `~/engines/llama-swap/current` |
-| vLLM | `vllm/vllm-openai:v0.32.0-aarch64@sha256:6ff5ff0d…` | Docker |
-| hf-cli | huggingface_hub 2.2.0 | `~/engines/hf-cli` |
+Everything runs in Docker. Nothing is installed on the host except Docker itself.
+
+| image | what | built from |
+|---|---|---|
+| `karspark/gateway:265` | llama-swap v265 + docker CLI (the gateway) | `gateway/Dockerfile` |
+| `karspark/vllm-salient:2026-10-14-77154ca6` | vLLM nightly + 14 Flash-Next patches | `engines/vllm-salient/upstream/Dockerfile` |
+| `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM | Docker Hub, pinned digest |
+| `karspark/hf-cli:2.2.0` | model downloads | `engines/hf-cli/Dockerfile` |
+| `karspark/bench:1` | benchmark harness | `bench/Dockerfile` |
 
 ## Ports
 
@@ -24,7 +31,7 @@ the Spark. UI: `/ui`.
 |---|---|---|
 | 22 | all | sshd |
 | **8080** | all | **karspark gateway**, the only user-facing port |
-| 10001+ | 127.0.0.1 | backends, assigned by the gateway (`${PORT}`) |
+| 10001+ | 127.0.0.1 | backend containers, assigned by the gateway (`${PORT}`) |
 
 ## Box baseline (after wipe, 2026-10-22)
 

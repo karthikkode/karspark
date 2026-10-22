@@ -20,7 +20,10 @@ sendLoadingState: true
 apiKeys:
   - "${env.KARSPARK_API_KEY}"
 
+# The gateway runs in a container but starts backends through the HOST's Docker, so every path in a
+# recipe is a host path. The unit passes these in.
 macros:
-  models: "${env.HOME}/models"
+  models: "${env.KARSPARK_MODELS}"
+  engines: "${env.KARSPARK_ENGINES}"
   # Start a backend container: removes a stale container of the same name first, then execs docker run.
-  ks-docker: "${env.HOME}/bin/ks-docker"
+  ks-docker: "/usr/local/bin/ks-docker"

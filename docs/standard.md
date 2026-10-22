@@ -10,13 +10,19 @@ See [architecture.md](architecture.md) for why.
 ~/
 ├── gateway/                  config.yaml (RENDERED from this repo, never hand-edited) + env (API key, 600)
 ├── models/<kind>/<name>/     weights only. kind = llm | image | audio | vision
-├── engines/<engine>/         runtimes: llama-swap/<ver>, hf-cli venv, our TTS/image API wrappers
-├── bin/                      helpers deployed from repo spark-bin/ (ks-docker, gpu-residency, spark-status)
+├── engines/<engine>/         engine STATE only (caches, token maps), deployed from repo engines/<engine>/spark/
+├── bin/                      spark-status (from repo spark-bin/)
 └── scratch/                  the ONLY place for ad-hoc work. Disposable; nothing may depend on it
 ```
 
 Nothing else goes in `~`: no loose files, no `*.bak`, no clones in the home root. `spark-status` flags
 anything off-standard.
+
+**Everything runs in Docker**: the gateway, every engine, downloads, benchmarks. Nothing (Python, CUDA
+libraries, binaries) is installed on the host, so versions can never clash. Images are built from a
+Dockerfile in this repo (`scripts/build-images.sh`, tagged `karspark/...`) or pulled by pinned digest.
+The gateway container starts engines as sibling containers through the host's Docker socket, so recipe
+paths are host paths (`${models}`, `${engines}` macros).
 
 ## Layout in this repo
 
