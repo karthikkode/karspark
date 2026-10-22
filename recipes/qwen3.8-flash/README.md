@@ -21,7 +21,22 @@
 
 Turn thinking on for one request: `"chat_template_kwargs": {"enable_thinking": true}`.
 
-## Measured on our Spark
+## Measured on our Spark (2026-10-22, `scripts/bench.sh`, tonyd2wild 40-prompt harness, thinking off)
 
-Pending the bake-off (step 4 of the plan). Upstream reports 71.3 tok/s median single stream, 42.6 prose,
-84 tok/s total at 6 streams, and a ~5–6 min cold start.
+Raw results: [bench/2026-10-22-salient/](bench/2026-10-22-salient/SUMMARY.md). Upstream reported 71.3 median / 42.6 prose /
+84 @6. **We reproduce it: 70.6 / 41.8 / 87.5 @6.**
+
+| streams | per-stream decode | total throughput | prose / code per stream | TTFT |
+|---|---|---|---|---|
+| 1 | **70.6 tok/s** | 70.6 | 41.8 / **79.0** | 0.22 s |
+| 2 | 48.2 | 65.5 | 32.7 / 50.3 | 0.30 s |
+| 4 | 34.8 | 69.3 | 30.8 / 37.5 | 0.40 s |
+| 6 | 27.4 | 87.5 | 20.4 / 29.9 | 0.47 s |
+| 8 | 25.8 | 100.4 | 19.5 / 26.4 | 0.55 s |
+
+- Prefill (cold, needle found every time): 14K → 5.7 s (2,479 tok/s), 56K → 21.4 s (2,641), 113K → 41.8 s (2,698).
+- Cold start through the gateway: **360 s** (weights 117 s; model resident 73.5 GiB; KV pool 889,758 tokens = 3.4 full 262K requests).
+- Smoke: tool call ✓, thinking on ✓, Anthropic `/v1/messages` ✓, 67.6 tok/s on code streamed to the laptop over Tailscale.
+- Weak spot: total throughput only reaches ~100 tok/s at 8 streams, because the deep MTP drafting that wins at 1 stream
+  helps less under load. If parallel agents become the main workload, benchmark a throughput recipe
+  (plan step 5: AutoRound / v16b).

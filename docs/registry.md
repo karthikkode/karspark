@@ -9,7 +9,7 @@ the Spark. UI: `/ui`.
 | recipe id | alias | kind | weights | engine | memory | load time | status |
 |---|---|---|---|---|---|---|---|
 | `qwen3-0.6b:vllm` | `qwen3-0.6b` | llm | `Qwen/Qwen3-0.6B@c1899de2` | vLLM 0.32.0 | ~13 GiB (0.08 util) | ~112 s cold | deployed 2026-10-22 |
-| `qwen3.8-flash:vllm-salient` | **`qwen3.8-flash`** (default) | llm | `nvidia/Qwen3.8-Flash-Next-NVFP4@fc694b54` | vllm-salient 2026-10-14-77154ca6 | ~100 GiB, runs alone | — | weights downloading |
+| `qwen3.8-flash:vllm-salient` | **`qwen3.8-flash`** (default) | llm | `nvidia/Qwen3.8-Flash-Next-NVFP4@fc694b54` | vllm-salient 2026-10-14-77154ca6 | 73.5 GiB weights + 13.6 GiB KV, runs alone | 360 s cold | **deployed 2026-10-22**: 70.6 tok/s 1-stream, 100 tok/s total @8 |
 
 ## Engines on the box
 
