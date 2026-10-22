@@ -4,12 +4,15 @@ karspark:
   diffusion_models: |
     image/flux2-dev-nvfp4
     video/ltx-2.5/diffusion_models
+    image/qwen-image-layered-comfy/split_files/diffusion_models
   text_encoders: |
     image/flux2-dev-comfy/split_files/text_encoders
     video/ltx-2.5/text_encoders
+    image/qwen-image-te/split_files/text_encoders
   vae: |
     image/flux2-dev-comfy/split_files/vae
     video/ltx-2.5/vae
+    image/qwen-image-layered-comfy/split_files/vae
   loras: |
     image/flux2-dev-comfy/split_files/loras
     image/loras

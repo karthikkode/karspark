@@ -1,5 +1,5 @@
 """API-format ComfyUI graphs behind the adapter's OpenAI-style endpoints. Filled in from /object_info."""
-MODELS = ["flux2-dev", "ltx-2.5"]
+MODELS = ["flux2-dev", "ltx-2.5", "qwen-image-layered"]
 
 
 class WorkflowError(Exception):
