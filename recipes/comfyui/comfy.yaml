@@ -1,0 +1,24 @@
+# One ComfyUI container serves every image/video model (FLUX.2, LTX-2.5) so they share one process.
+# The id must be `comfyui_auto`: llama-swap's /comfyui/ endpoint (full ComfyUI UI + native API, with
+# websocket-safe swapping) only works for a model with that exact name. The aliases are what the
+# OpenAI-style endpoints use: POST /v1/images/generations {"model": "flux2-dev"}.
+models:
+  "comfyui_auto":
+    name: "ComfyUI (FLUX.2 dev NVFP4 + Turbo, LTX-2.5)"
+    description: "images: model flux2-dev via /v1/images/generations; video: /upstream/comfyui_auto/v1/videos/generations; UI: /comfyui/"
+    aliases: ["flux2-dev", "ltx-2.5"]
+    checkEndpoint: /health
+    compat:
+      ignoreWebsockets: true
+    ttl: 1800
+    env:
+      - "KS_NEED_GIB=60"
+    cmd: |
+      ${ks-docker} ks-comfyui
+      --gpus all --ipc host --shm-size 16g --memory 100g --memory-swap 100g
+      -p 127.0.0.1:${PORT}:8000
+      -v ${models}:/models:ro
+      -e HF_HUB_OFFLINE=1
+      -e 'COMFY_ARGS=--disable-pinned-memory --reserve-vram 4'
+      karspark/comfyui:0.42.4
+    cmdStop: docker stop -t 30 ks-comfyui

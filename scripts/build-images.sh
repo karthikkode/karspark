@@ -18,11 +18,23 @@ prefetch_gateway() {
   fi
 }
 
+prefetch_comfyui() {
+  local f="$ROOT/engines/comfyui/.dl/comfyui.tar.gz" tag=v0.42.4 sha=3f438ca69f3d0efc5f748de055daeea9ba26ee50
+  if [ ! -s "$f" ]; then
+    mkdir -p "$ROOT/engines/comfyui/.dl"
+    curl -fsSL -o "$f" "https://codeload.github.com/comfyanonymous/ComfyUI/tar.gz/$sha"
+  fi
+  # the tarball's top dir is named after the commit, which proves what we fetched
+  local top; top="$(tar -tzf "$f" 2>/dev/null | head -1 || true)"
+  [ "$top" = "ComfyUI-$sha/" ] || { echo "comfyui tarball is not commit $sha" >&2; exit 1; }
+}
+
 # tag | build context | prefetch fn | build args
 IMAGES=(
   "karspark/hf-cli:2.2.0-xet1.7.0|engines/hf-cli||"
   "karspark/gateway:$V|gateway|prefetch_gateway|"
   "karspark/bench:1|bench||"
+  "karspark/comfyui:0.42.4|engines/comfyui|prefetch_comfyui|"
   "karspark/vllm-salient:2026-10-14-77154ca6|engines/vllm-salient/upstream||BASE=vllm/vllm-openai@sha256:a7deff2c216def98c193352aca50fb03a2ee29231355b3033dc3789009f6d23e"
 )
 for line in "${IMAGES[@]}"; do

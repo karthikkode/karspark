@@ -30,7 +30,8 @@ for path in sorted(ROOT.glob("recipes/*/*.yaml")):
         where = f"{path.relative_to(ROOT)}: {mid}"
         if mid in models:
             errors.append(f"{where}: duplicate model id")
-        if not mid.startswith(folder + ":"):
+        # llama-swap's /comfyui/ endpoint requires this exact id, so it is the one allowed exception.
+        if not mid.startswith(folder + ":") and not (folder == "comfyui" and mid == "comfyui_auto"):
             errors.append(f"{where}: id must be '<folder>:<recipe>' ({folder}:...)")
         cmd = m.get("cmd", "")
         if "${PORT}" in cmd and "127.0.0.1:${PORT}" not in cmd:
@@ -43,7 +44,7 @@ for path in sorted(ROOT.glob("recipes/*/*.yaml")):
             errors.append(f"{where}: pin docker images by digest (or use a karspark/ image built here)")
         if "docker" in cmd and "HF_HUB_OFFLINE=1" not in cmd:
             errors.append(f"{where}: set -e HF_HUB_OFFLINE=1 (weights come from ${{models}}, never downloaded into a cache)")
-        if "docker" in cmd and "${models}/" not in cmd:
+        if "docker" in cmd and "${models}" not in cmd:
             errors.append(f"{where}: mount weights from ${{models}}/<kind>/<name>")
         for n in m.get("aliases", []):
             if n in names or n in models:
