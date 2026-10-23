@@ -68,13 +68,15 @@ Measured on the box where a number is given; the rest is measured in phase 0 and
 | operation | engine | time |
 |---|---|---|
 | text, Flash-Next | coding mode | 70 tok/s one stream, ~100 tok/s total under load (6 concurrent streams) |
-| text, planner | creative mode | not measured yet (community: 22–38 tok/s) |
-| switch coding → creative | | not measured yet (unloading Flash-Next, loading the planner and ComfyUI) |
-| switch creative → coding | | ~6 min (Flash-Next cold load, 360 s measured) |
-| FLUX.2 image, 12 steps, ~1 MP | ComfyUI | not measured yet |
+| text, planner | creative mode | short answers in ~3 s; tok/s from the bake-off (community: 22–38) |
+| switch coding → creative | | ~4.5 min (262 s measured: Flash-Next out, planner 249 s, ComfyUI 10 s) |
+| switch creative → coding | | ~4.5 min (266 s measured) |
+| FLUX.2 image, 12 steps, 1280x720 | ComfyUI | 29 s warm; ~65 s when FLUX must load first; ~100 s with a reference image after a swap |
+| layer split, 4 layers at 640 | ComfyUI | ~165 s |
+| SeedVR2-7B image upscale ×2 | ComfyUI | ~15 s warm |
 | ComfyUI model-family swap (FLUX ↔ LTX ↔ SeedVR2 ↔ Qwen-Layered) | ComfyUI | 30–60 s |
-| LTX-2.5 video, 5 s 720p | ComfyUI | not measured yet; minutes |
-| SeedVR2 video upscale | ComfyUI | slower than generating; upscale finals only |
+| LTX-2.5 video, 3 s 768x512 | ComfyUI | ~56 s (5 s 720p: longer, not measured yet) |
+| SeedVR2-3B video upscale ×2 | ComfyUI | ~300 s for a 3 s clip, 5× slower than generating it: upscale finals only |
 
 `GET /v1/mode` reports measured switch costs (`switch_costs_s`), and `eta_s` uses measured job durations
 once real runs exist.
