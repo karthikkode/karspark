@@ -397,3 +397,17 @@ async def test_speech_jobs_builtin_and_uploaded_voice(env):
     assert r.status_code == 400 and "expected audio" in r.text
     r = await env.c.post("/v1/jobs", json={"type": "speech", "text": "  "}, headers=std)
     assert r.status_code == 400 and "text is required" in r.text
+
+
+async def test_first_media_job_after_a_restart_frees_comfyui(env):
+    # seen live: core restarted while ComfyUI held FLUX; it didn't know, skipped the free, and TTS hit OOM
+    await go_creative(env)
+    std = await env.key("proj-a", "standard")
+    env.k.engines.engines["comfyui:comfy"].loaded_model = None     # what a restarted core knows
+    before = env.comfy.frees
+    job = (await env.c.post("/v1/jobs", json={"type": "speech", "text": "Hello."}, headers=std)).json()
+    await env.until(lambda: _is_state(env, job["id"], "succeeded"))
+    assert env.comfy.frees == before + 1
+    job = (await env.c.post("/v1/jobs", json={"type": "speech", "text": "Again."}, headers=std)).json()
+    await env.until(lambda: _is_state(env, job["id"], "succeeded"))
+    assert env.comfy.frees == before + 1                             # same family: no second free

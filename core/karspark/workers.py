@@ -62,8 +62,10 @@ class Workers:
         jid = job["id"]
         e = self.engines.engines[eng.id]
         fam = family(job["model"])
-        if fam and e.loaded_model and e.loaded_model != fam:
+        if fam and e.loaded_model != fam:
             # ComfyUI keeps every model it has loaded; drop the previous family before loading the next.
+            # Unknown (None: core restarted, adopting a ComfyUI that may hold anything) frees too: seen live,
+            # FLUX stayed loaded after a core restart and the next speech job ran out of memory.
             try:
                 await self.http.post(f"{eng.base_url}/v1/free", timeout=60)
             except httpx.HTTPError:
