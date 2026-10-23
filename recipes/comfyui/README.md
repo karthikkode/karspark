@@ -1,6 +1,6 @@
-# comfyui (images, layers, video)
+# comfyui (images, layers, video, speech)
 
-One container, `karspark/comfyui:0.42.4-r6` ([engine](../../engines/comfyui/README.md)), serves every
+One container, `karspark/comfyui:0.42.4-r7` ([engine](../../engines/comfyui/README.md)), serves every
 diffusion model. Weights are read-only from `~/models` via `extra_model_paths.yaml`. The graphs live in
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
@@ -20,6 +20,8 @@ tools with the parameters below.
 | `seedvr2-7b`, `seedvr2-7b-sharp`, `seedvr2-3b` | SeedVR2 one-step upscaler for images and video (7B fp16 = best quality, 7B sharp int8 = more detail, 3B fp16 = faster, video default) | `Comfy-Org/SeedVR2` → `~/models/image/seedvr2` | `df488797` |
 | `esrgan-anime` (also the first step of `flux2-refine`) | RealESRGAN x4plus anime 6B. Instant, adds no detail | official GitHub release v0.2.2.4, converted to safetensors by `scripts/fetch-pth.sh` → `~/models/image/upscale-gan` | sha256 `f872d837…` (.pth) |
 | character LoRAs | for `flux2-dev` | `~/models/image/loras/<name>.safetensors` | ours |
+| `indextts-2.5` | IndexTTS-2.5 zero-shot TTS (bf16): text → narration WAV in a cloned voice. Not a ComfyUI graph: the adapter runs it in a worker process with its own venv, and `/v1/free` stops it like any family swap | `IndexTeam/IndexTTS-2.5` → `~/models/audio/indextts-2.5` (no `qwen0.6bemo4-merge`: emotion-from-text is off); `facebook/w2v-bert-2.0` → `~/models/audio/w2v-bert-2.0`; `funasr/campplus` → `~/models/audio/campplus`; `nvidia/bigvgan_v2_22khz_80band_256x` (generator only) → `~/models/audio/bigvgan-v2-22khz` | `c39ce5ba`, `da985ba0`, `e4b6ede7`, `633ff708` |
+| voice `narrator-male` | the built-in narrator: `examples/voice_05.wav` of the `IndexTeam/IndexTTS-2-Demo` space (a calm male storyteller, Chinese speaker, 8.4 s) | `~/models/audio/indextts-voices/narrator-male.wav` (sha256 `eefb7f4a…`) | space `b01840e8` |
 
 ## Job parameters (served by karspark-core from phase 2: `/v1/jobs`, MCP)
 
@@ -58,6 +60,14 @@ tools with the parameters below.
  "prompt": "describe the image", "loras": [{"name": "mychar.safetensors"}], "denoise": 0.35}
 {"model": "esrgan-anime", "image": "<base64 png>", "scale": 4}          // instant preview
 // scale > 1 and <= 4. seedvr2 also takes "color_correction": lab (default) | wavelet | adain | none
+```
+
+**Speech** (`speech`): a WAV, 22.05 kHz mono. The only source of voices (videos stay silent; mux it on).
+
+```jsonc
+{"text": "Paragraph one.\n\nParagraph two.", "voice": "narrator-male", "lang": "EN", "pause_ms": 600, "seed": 7}
+// or "voice": "<file_id of a 3-15 s clean speech clip>" to clone it. Spell out numbers you want read aloud.
+// The text is split into chunks of whole sentences; a pause keeps finished chunks and resume continues.
 ```
 
 `upscale_video`: an MP4 that keeps the source's frame rate (and audio track, if any).

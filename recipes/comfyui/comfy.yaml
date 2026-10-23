@@ -1,9 +1,10 @@
-# One ComfyUI container serves every image/video/upscale model (they share one process and its model cache).
+# One ComfyUI container serves every image/video/upscale model (they share one process and its model cache),
+# and speech (IndexTTS-2.5, a worker process of the adapter in its own venv; stopped on /v1/free like a family swap).
 # The adapter in front of it is the internal job API for karspark-core (engines/comfyui/adapter/server.py).
 # Jobs live in ${data}/jobs, shared with core: inputs, outputs and pause checkpoints.
 kind: media
-capabilities: [image, layers, video, upscale_image, upscale_video]
-models: [flux2-dev, qwen-image-layered, ltx-2.5, seedvr2-7b, seedvr2-7b-sharp, seedvr2-3b, flux2-refine, esrgan-anime]
+capabilities: [image, layers, video, upscale_image, upscale_video, speech]
+models: [flux2-dev, qwen-image-layered, ltx-2.5, seedvr2-7b, seedvr2-7b-sharp, seedvr2-3b, flux2-refine, esrgan-anime, indextts-2.5]
 port: 10020
 memory_gib: 75           # LTX-2.5 + Gemma TE ~40 GB, FLUX.2 ~34 GB; ComfyUI holds one family at a time (core calls /v1/free between families)
 slots: 1
@@ -16,4 +17,4 @@ run: |
   -v ${data}/jobs:/jobs
   -e HF_HUB_OFFLINE=1
   -e 'COMFY_ARGS=--disable-pinned-memory --reserve-vram 4'
-  karspark/comfyui:0.42.4-r6
+  karspark/comfyui:0.42.4-r7

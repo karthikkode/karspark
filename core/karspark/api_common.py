@@ -21,6 +21,7 @@ INPUTS = {  # job kind -> input name -> (media type, list?)
     "video": {"first_frame": ("image", False), "last_frame": ("image", False)},
     "upscale_image": {"image": ("image", False)},
     "upscale_video": {"video": ("video", False)},
+    "speech": {"voice": ("audio", False)},
     "text": {},
 }
 

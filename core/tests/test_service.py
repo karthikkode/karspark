@@ -375,3 +375,25 @@ async def test_text_job_and_stream_stop_when_the_model_loops(env):
     r = await env.c.post("/v1/chat/completions", json={"model": "text", "stream": True,
                                                        "messages": [{"role": "user", "content": "hi"}]}, headers=env.owner)
     assert "[DONE]" in r.text     # the slot was released
+
+
+async def test_speech_jobs_builtin_and_uploaded_voice(env):
+    await go_creative(env)
+    std = await env.key("proj-a", "standard")
+    r = await env.c.post("/v1/jobs", json={"type": "speech", "text": "Once upon a time.", "voice": "narrator-male"},
+                         headers=std)
+    assert r.status_code == 201, r.text
+    j = await env.k.jobs.get(r.json()["id"])
+    assert j["model"] == "indextts-2.5" and j["params"]["voice"] == "narrator-male" and j["inputs"] == {}
+    await env.until(lambda: _is_state(env, j["id"], "succeeded"))
+    wav = b"RIFF\x24\x00\x00\x00WAVEfmt " + b"\x00" * 64
+    fid = (await env.c.post("/v1/files", files={"file": ("me.wav", wav, "audio/wav")}, headers=std)).json()["file_id"]
+    r = await env.c.post("/v1/jobs", json={"type": "speech", "text": "Hello.", "voice": fid}, headers=std)
+    assert r.status_code == 201, r.text
+    assert (await env.k.jobs.get(r.json()["id"]))["inputs"] == {"voice": "voice.wav"}
+    png = (await env.c.post("/v1/files", files={"file": ("x.png", b"\x89PNG\r\n\x1a\n" + b"0" * 64, "image/png")},
+                            headers=std)).json()["file_id"]
+    r = await env.c.post("/v1/jobs", json={"type": "speech", "text": "Hello.", "voice": png}, headers=std)
+    assert r.status_code == 400 and "expected audio" in r.text
+    r = await env.c.post("/v1/jobs", json={"type": "speech", "text": "  "}, headers=std)
+    assert r.status_code == 400 and "text is required" in r.text

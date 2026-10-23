@@ -11,5 +11,6 @@ job_timeout_s:                            # running time limit per job (paused t
   video: 3600
   upscale_image: 900
   upscale_video: 3600
+  speech: 3600
 bodies_days: 30                           # request/response bodies in logs.db
 meta_days: 365                            # request metadata and events

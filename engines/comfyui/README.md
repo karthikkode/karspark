@@ -1,6 +1,6 @@
 # Engine: comfyui
 
-Image `karspark/comfyui:0.42.4-r6`, built by `scripts/build-images.sh` from the [Dockerfile](Dockerfile):
+Image `karspark/comfyui:0.42.4-r7`, built by `scripts/build-images.sh` from the [Dockerfile](Dockerfile):
 
 - `python:3.12-slim` (pinned digest) + torch **2.13.0+cu130**, torchvision 0.28.0, torchaudio 2.11.0,
   comfy-kitchen 0.2.39 (built 2026-10-22, 6.9 GB; full set in `/opt/pip-freeze.txt` inside the image)
@@ -16,6 +16,13 @@ Image `karspark/comfyui:0.42.4-r6`, built by `scripts/build-images.sh` from the 
   `progress.json` each step; when `PAUSE` exists it saves the latent and step to `ckpt/` and stops. Running the
   same job again skips finished stages (`*.done.pt`) and continues the interrupted one from its saved step
   (ancestral noise is fast-forwarded, so the result matches an uninterrupted run)
+- `tts/`: the IndexTTS-2.5 speech worker (r7). Upstream `index-tts` at `d9e41aac` (laptop-fetched tarball)
+  in `/opt/indextts`, its runtime in `/opt/tts/venv` (`--system-site-packages`: it reuses the image's torch,
+  but has its own transformers 4.52.1, which IndexTTS pins and ComfyUI's 5.x can't replace). Two upstream
+  pieces are swapped in `worker.py`, not patched in the source: the text normaliser uses `wetext` (pynini, which
+  WeTextProcessing needs, has no aarch64 wheel) and `torchaudio.load` uses soundfile (torchaudio 2.11 loads
+  through TorchCodec, which isn't installed). The adapter starts the worker on the first speech job and stops
+  it on `/v1/free`, so its memory is released like any model-family swap
 - `tools/validate_graphs.py`: ComfyUI's own validator over every graph, on CPU with no weights loaded.
   Run it with `scripts/validate-comfy-graphs.sh`, which is safe while another model owns the GPU
 

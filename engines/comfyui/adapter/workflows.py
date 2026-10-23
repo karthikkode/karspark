@@ -8,6 +8,8 @@ image), flattened (no subgraphs, switches or math nodes; Python does that) and p
   ltx-2.5             video_ltx2_5_{t2v,i2v,flf2v}.json    text / first frame / first + last frame -> video
   seedvr2-*           utility_seedvr2_*_upscale_*.json     one-step upscaling, images and video
   flux2-refine, esrgan-anime                               anime-safe and instant image upscaling
+  indextts-2.5        not a ComfyUI graph: build_speech() returns a spec that the adapter hands to its
+                      IndexTTS worker (../tts/worker.py, its own venv in this image)
 
 Every sampler is KarsparkSampler (../karspark_nodes), so any job can pause at a step boundary and resume
 from its checkpoint. Templates that use KSampler are rebuilt from the same pieces (CFGGuider,
@@ -61,6 +63,19 @@ LTX_SFX_DIRECTION = ("Audio: only the diegetic sound effects of the scene (foots
 
 MAX_REFS = 6
 
+# IndexTTS-2.5 (speech), under /models (= ~/models, read-only). The worker links these into the layout the
+# upstream code expects. Voices are short reference clips; the narrator is the IndexTTS-2 demo's voice_05.
+SPEECH = {
+    "model_dir": "/models/audio/indextts-2.5",
+    "w2v_bert": "/models/audio/w2v-bert-2.0",
+    "campplus": "/models/audio/campplus/campplus_cn_common.bin",
+    "bigvgan": "/models/audio/bigvgan-v2-22khz",
+}
+VOICES_DIR = "/models/audio/indextts-voices"
+VOICES = {"narrator-male": "narrator-male.wav"}
+SPEECH_LANGS = ("EN", "ZH", "JA", "ES", "FR", "DE", "KO", "YUE")
+MAX_SPEECH_CHARS = 20000
+
 # Public model names per job type; the first is the default.
 MODELS = {
     "image": ["flux2-dev"],
@@ -68,6 +83,7 @@ MODELS = {
     "video": ["ltx-2.5"],
     "upscale_image": ["seedvr2-7b", "seedvr2-7b-sharp", "seedvr2-3b", "flux2-refine", "esrgan-anime"],
     "upscale_video": ["seedvr2-3b", "seedvr2-7b", "seedvr2-7b-sharp"],
+    "speech": ["indextts-2.5"],
 }
 
 
@@ -103,7 +119,8 @@ class Graph:
 
 def build(kind, params, inputs, ctx):
     builders = {"image": build_image, "layers": build_layers, "video": build_video,
-                "upscale_image": build_upscale_image, "upscale_video": build_upscale_video}
+                "upscale_image": build_upscale_image, "upscale_video": build_upscale_video,
+                "speech": build_speech}
     if kind not in builders:
         raise WorkflowError(f"unknown job type {kind!r}")
     model = params.get("model") or MODELS[kind][0]
@@ -426,3 +443,31 @@ def build_upscale_video(params, inputs, ctx):
     v = g.add("CreateVideo", images=g.out(img), fps=g.out(parts, 2), audio=g.out(parts, 1), bit_depth=8)
     g.add("SaveVideo", video=g.out(v), filename_prefix=g.prefix("upscale"), format="auto", **{"format.codec": "auto"})
     return g.nodes
+
+
+# ---------------------------------------------------------------- speech
+def build_speech(params, inputs, ctx):
+    """Text -> narration (WAV). Not a ComfyUI graph: a spec for the adapter's IndexTTS worker.
+
+    params: text (required), voice (a built-in name, default narrator-male; or upload one as the "voice"
+            input, 3-15 s of clean speech), lang (EN default), seed, pause_ms (silence between paragraphs)."""
+    text = str(params.get("text") or params.get("prompt") or "").strip()
+    if not text:
+        raise WorkflowError("text is required")
+    if len(text) > MAX_SPEECH_CHARS:
+        raise WorkflowError(f"text is longer than {MAX_SPEECH_CHARS} characters; split it into several jobs")
+    lang = str(params.get("lang") or "EN").upper()
+    if lang not in SPEECH_LANGS:
+        raise WorkflowError(f"lang must be one of: {', '.join(SPEECH_LANGS)}")
+    if inputs.get("voice"):
+        voice = f"/jobs/{inputs['voice']}"
+    else:
+        name = params.get("voice") or "narrator-male"
+        if name not in VOICES:
+            raise WorkflowError(f"voice must be one of: {', '.join(VOICES)} (or upload a clip as the voice input)")
+        voice = f"{VOICES_DIR}/{VOICES[name]}"
+    pause_ms = int(params.get("pause_ms", 600))
+    if not 0 <= pause_ms <= 5000:
+        raise WorkflowError("pause_ms must be 0..5000")
+    return {"speech": True, "text": text, "voice": voice, "lang": lang, "seed": _seed(params),
+            "pause_ms": pause_ms, "job_dir": ctx["job_dir"], "out": ctx["out"], "paths": SPEECH}

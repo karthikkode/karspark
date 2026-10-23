@@ -15,12 +15,17 @@ API (127.0.0.1 only; the recipe publishes it to core, never to the network):
   GET  /v1/jobs/{id}        {state: running|succeeded|paused|cancelled|failed, progress, outputs, error}
   POST /v1/jobs/{id}/pause  stop at the next sampling step, keeping a checkpoint
   POST /v1/jobs/{id}/cancel stop now; checkpoints are left for core to delete
-  POST /v1/free             unload ComfyUI's cached models (between model families, or before a mode switch)
+  POST /v1/free             unload ComfyUI's cached models and stop the speech worker (between model families,
+                            or before a mode switch)
   GET  /v1/models, /health
   everything else is proxied to ComfyUI unchanged (UI, native API, websockets) for /comfyui/ on core.
 
 Resume = POST /v1/run again with the same job_id and a new run_id: finished stages are read back and the
 interrupted stage continues from its saved step.
+
+Speech jobs (kind "speech", IndexTTS-2.5) don't go through ComfyUI: the adapter hands them to a worker
+process in its own venv (../tts/worker.py), started on first use and stopped by /v1/free. Same job folder,
+same PAUSE file, same states.
 """
 import asyncio
 import json
@@ -40,6 +45,8 @@ COMFY = "http://127.0.0.1:8188"
 COMFY_ARGS = os.environ.get("COMFY_ARGS", "").split()
 JOBS = Path(os.environ.get("JOBS_DIR", "/jobs"))
 VIDEO_EXT = (".mp4", ".webm", ".mov", ".mkv")
+TTS_CMD = ["/opt/tts/venv/bin/python", "/opt/tts/worker.py"]
+TTS_ENV = {**os.environ, "PYTHONPATH": "/opt/indextts", "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"}
 
 
 def start_comfy():
@@ -73,6 +80,60 @@ def job_dir(job_id):
     return JOBS / job_id
 
 
+# ---------------------------------------------------------------- speech worker
+class Speech:
+    """The IndexTTS worker process: one request at a time over stdin/stdout JSON lines."""
+
+    def __init__(self):
+        self.proc = None
+        self.lock = asyncio.Lock()
+
+    async def synth(self, spec):
+        async with self.lock:
+            if self.proc is None or self.proc.returncode is not None:
+                print("[adapter] starting the IndexTTS worker", flush=True)
+                self.proc = await asyncio.create_subprocess_exec(
+                    *TTS_CMD, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, env=TTS_ENV,
+                    cwd="/opt/indextts", limit=1 << 20)
+            self.proc.stdin.write((json.dumps({"cmd": "synth", **spec}) + "\n").encode())
+            await self.proc.stdin.drain()
+            line = await self.proc.stdout.readline()
+            if not line:
+                code = await self.proc.wait()
+                self.proc = None
+                return {"state": "failed", "error": {"message": f"IndexTTS worker exited ({code}); see the engine log"}}
+            out = json.loads(line)
+            if out.get("state") == "failed" and isinstance(out.get("error"), str):
+                out["error"] = {"message": out["error"]}
+            return out
+
+    async def stop(self):
+        if self.proc and self.proc.returncode is None:
+            self.proc.terminate()
+            try:
+                await asyncio.wait_for(self.proc.wait(), 30)
+            except asyncio.TimeoutError:
+                self.proc.kill()
+        self.proc = None
+
+
+SPEECH = Speech()
+
+
+async def _run_speech(job_id, spec):
+    cur = RUNS[job_id]
+    try:
+        out = await SPEECH.synth(spec)
+    except Exception as e:       # never leave the job "running" forever
+        out = {"state": "failed", "error": {"message": f"speech: {type(e).__name__}: {e}"}}
+    if out.get("state") == "paused" and cur["cancel"]:
+        out = {"state": "cancelled"}
+    elif out.get("state") == "succeeded" and cur["cancel"]:
+        out = {"state": "cancelled"}
+    (JOBS / job_id / "PAUSE").unlink(missing_ok=True)
+    cur["final"] = out
+
+
 # ---------------------------------------------------------------- jobs
 # job_id -> {"prompt_id", "run_id", "cancel": bool, "final": dict | None}. Lost on restart, which also
 # restarts ComfyUI; core then sees 404 and runs the job again from its checkpoints.
@@ -97,6 +158,10 @@ async def run(request):
         graph = workflows.build(kind, body.get("params") or {}, inputs, ctx)
     except workflows.WorkflowError as e:
         return err(str(e))
+    if kind == "speech":
+        RUNS[job_id] = {"prompt_id": None, "run_id": run_id, "cancel": False, "final": None, "speech": True}
+        asyncio.ensure_future(_run_speech(job_id, graph))
+        return web.json_response({"prompt_id": None, "run_id": run_id}, status=202)
     session = request.app["session"]
     async with session.post(f"{COMFY}/prompt", json={"prompt": graph, "client_id": "karspark"}) as r:
         res = await r.json()
@@ -148,7 +213,7 @@ async def job_status(request):
     cur = RUNS.get(job_id)
     if not cur:
         return err("unknown job", 404)
-    if cur["final"] is None:
+    if cur["final"] is None and not cur.get("speech"):
         session = request.app["session"]
         async with session.get(f"{COMFY}/history/{cur['prompt_id']}") as r:
             h = await r.json()
@@ -189,6 +254,8 @@ async def cancel(request):
     # The PAUSE flag stops the sampler at its next step even if the prompt starts after the interrupt below
     # (ComfyUI skips an interrupt for a prompt that is dequeued but not executing yet).
     (job_dir(job_id) / "PAUSE").touch()
+    if cur.get("speech"):
+        return web.json_response({"state": "cancelling"}, status=202)   # the worker stops at the next chunk
     session = request.app["session"]
     async with session.post(f"{COMFY}/queue", json={"delete": [cur["prompt_id"]]}):
         pass
@@ -198,6 +265,8 @@ async def cancel(request):
 
 
 async def free(request):
+    if not any(r.get("speech") and r["final"] is None for r in RUNS.values()):
+        await SPEECH.stop()          # its process exit frees all of its memory
     async with request.app["session"].post(f"{COMFY}/free", json={"unload_models": True, "free_memory": True}) as r:
         return web.json_response({"ok": r.status == 200})
 
@@ -255,6 +324,7 @@ async def on_startup(app):
 
 
 async def on_cleanup(app):
+    await SPEECH.stop()
     await app["session"].close()
     app["proc"].terminate()
 

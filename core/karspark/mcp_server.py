@@ -28,6 +28,8 @@ Tools
 - Images: generate_image (FLUX.2 + Turbo LoRA, 12 steps), split_layers (Qwen-Image-Layered), upscale_image.
 - Video: generate_video (LTX-2.5; first_frame = image-to-video, first_frame + last_frame = first-to-last
   transition; silent unless audio="sfx", which adds sound effects only, never music or voices), upscale_video.
+- Speech: generate_speech (IndexTTS-2.5): text -> narration WAV, built-in voice "narrator-male" or your own
+  3-15 s clip as voice. This is the only source of voices: videos never get speech from the video model.
 - Media tools are jobs: they wait up to wait_s (max 55), then return the job with eta_s. Continue with wait_job.
   pause_job / resume_job / cancel_job / set_priority control your own jobs; a paused job keeps its progress.
 - Inputs: a file_id (upload_file once, reuse it), a karspark file URL, or base64. Outputs are karspark URLs.
@@ -127,6 +129,17 @@ def build_mcp(k) -> MCPServer:
                             idempotency_key: str | None = None, wait_s: float = 50):
         return await media(ctx, {"type": "upscale_video", "video": video, "model": model, "scale": scale,
                                  "priority": priority, "idempotency_key": idempotency_key}, wait_s)
+
+    @mcp.tool(description="Narrate text with IndexTTS-2.5 -> WAV (22.05 kHz mono). voice: 'narrator-male' (built in) "
+                          "or a file_id of a 3-15 s clean speech clip to clone. lang EN (default), ZH, JA, ES, FR, DE, "
+                          "KO, YUE. Blank lines are paragraph breaks (pause_ms of silence). Up to 20000 characters; "
+                          "spell out numbers and abbreviations as you want them read.")
+    async def generate_speech(ctx: Context, text: str, voice: str = "narrator-male", lang: str = "EN",
+                              pause_ms: int = 600, seed: int | None = None, priority: int | None = None,
+                              idempotency_key: str | None = None, wait_s: float = 50):
+        return await media(ctx, {"type": "speech", "text": text, "voice": voice,
+                                 "lang": lang, "pause_ms": pause_ms, "seed": seed, "priority": priority,
+                                 "idempotency_key": idempotency_key}, wait_s)
 
     @mcp.tool(description="Upload a file (base64) for use as an input; returns its file_id.")
     async def upload_file(ctx: Context, name: str, data_base64: str) -> dict:

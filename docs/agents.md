@@ -37,8 +37,9 @@ The MCP server sends a short version of this page as its `instructions` on conne
     answers, and on long prose that can take many minutes: submit long writing as a text job
     (`generate_text(as_job=true)` on MCP; it survives pauses and mode switches), or pass `reasoning_effort="none"` when you want only the text.
     `progress.reasoning_chars` shows the thinking as it grows.
-12. **Videos are silent.** `audio="sfx"` adds sound effects only. Music and voices are never generated; add
-    them elsewhere.
+12. **Videos are silent; voices come from TTS.** `audio="sfx"` adds sound effects only; the video model never
+    makes music or voices. For narration or dialogue use `generate_speech` (IndexTTS-2.5, built-in
+    `narrator-male` or a cloned clip) and mux it onto the video. Music is never generated.
 
 ## Before a big batch: look first
 

@@ -78,6 +78,7 @@ curl -s $KS/v1/files/file_.../content -H "Authorization: Bearer $KEY" -o out.png
 | `video` | `ltx-2.5` | `first_frame`, `last_frame` | `prompt`, `duration` (1–20 s), `size` (÷64, 1280x720), `fps`, `audio` (`none` default, or `sfx`) |
 | `upscale_image` | `seedvr2-7b` | `image` | `model` (`seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime`), `scale` (≤ 4) |
 | `upscale_video` | `seedvr2-3b` | `video` | `model`, `scale` |
+| `speech` | `indextts-2.5` | `voice` (a 3–15 s clip to clone; optional) | `text` (≤ 20000 chars; blank line = paragraph), `voice` (`narrator-male` built in), `lang` (`EN` default, `ZH`, `JA`, `ES`, `FR`, `DE`, `KO`, `YUE`), `pause_ms` (600), `seed` |
 | `text` | `text` | none | `prompt` or `messages`, `system`, `max_tokens`, `reasoning_effort` |
 
 The inputs choose the video type. With no frames it's text-to-video; with `first_frame` it's

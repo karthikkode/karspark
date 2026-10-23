@@ -20,14 +20,21 @@ from .jobs import JobError, new_id
 MAGIC = [(b"\x89PNG", "image/png", "png"), (b"\xff\xd8\xff", "image/jpeg", "jpg"), (b"RIFF", "image/webp", "webp"),
          (b"GIF8", "image/gif", "gif")]
 VIDEO_MAGIC = [(4, b"ftyp", "video/mp4", "mp4"), (0, b"\x1a\x45\xdf\xa3", "video/webm", "webm")]
+AUDIO_MAGIC = [(b"ID3", "audio/mpeg", "mp3"), (b"\xff\xfb", "audio/mpeg", "mp3"), (b"\xff\xf3", "audio/mpeg", "mp3"),
+               (b"fLaC", "audio/flac", "flac"), (b"OggS", "audio/ogg", "ogg")]
 FILE_URL = re.compile(r"(?:^|/)v1/files/(file_[0-9a-f]{16})(?:/content)?$")
 
 
 def sniff(raw: bytes) -> tuple[str, str]:
+    if raw.startswith(b"RIFF") and raw[8:12] == b"WAVE":
+        return "audio/wav", "wav"
     for sig, mime, ext in MAGIC:
         if raw.startswith(sig):
             if sig == b"RIFF" and raw[8:12] != b"WEBP":
                 continue
+            return mime, ext
+    for sig, mime, ext in AUDIO_MAGIC:
+        if raw.startswith(sig):
             return mime, ext
     for off, sig, mime, ext in VIDEO_MAGIC:
         if raw[off:off + len(sig)] == sig:

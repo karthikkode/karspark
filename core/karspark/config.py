@@ -18,7 +18,7 @@ from pathlib import Path
 import yaml
 
 MEMORY_LIMIT_GIB = 115  # of 121 GiB unified; the OS and desktop need the rest
-CAPABILITIES = ("text", "image", "layers", "video", "upscale_image", "upscale_video")
+CAPABILITIES = ("text", "image", "layers", "video", "upscale_image", "upscale_video", "speech")
 JOB_KINDS = ("text", "image", "layers", "video", "upscale_image", "upscale_video")
 
 

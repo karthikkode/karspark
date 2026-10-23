@@ -58,6 +58,12 @@ CASES = [
     ("video upscale seedvr2-3b", "upscale_video", {}, {"video": CLIP}),
     ("video upscale seedvr2-7b", "upscale_video", {"model": "seedvr2-7b", "scale": 1.5}, {"video": CLIP}),
 ]
+SPEECH_CASES = [   # (label, params, inputs, should be rejected)
+    ("speech narrator", {"text": "Once upon a time."}, {}, False),
+    ("speech own voice", {"text": "Hello.", "lang": "en"}, {"voice": "j1/in/voice.wav"}, False),
+    ("speech no text", {"text": " "}, {}, True),
+    ("speech unknown voice", {"text": "Hi.", "voice": "nobody"}, {}, True),
+]
 CTX = {"job_dir": "/tmp/jobs/j1", "run_id": "check", "out": "j1/out"}
 
 
@@ -74,6 +80,15 @@ async def main():
             print("     ", err)
             for nid, e in node_errors.items():
                 print("     ", nid, graph[nid]["class_type"], e.get("errors"))
+    # speech is not a ComfyUI graph: check the spec the adapter hands to its IndexTTS worker
+    for label, params, inputs, want_error in SPEECH_CASES:
+        try:
+            spec = workflows.build("speech", {**params, "seed": 1}, inputs, CTX)
+            ok = not want_error and spec["speech"] and spec["text"] and spec["voice"].endswith(".wav")
+        except workflows.WorkflowError:
+            ok = want_error
+        print(f"{'OK  ' if ok else 'FAIL'} {label:<24} spec")
+        bad += not ok
     sys.exit(1 if bad else 0)
 
 

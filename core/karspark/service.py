@@ -7,7 +7,7 @@ import time
 
 import httpx
 
-from .api_common import INPUTS, check_webhook, default_model, job_view, new_seed, validate_media
+from .api_common import INPUTS, check_webhook, default_model, job_view, new_seed, validate_media, workflows
 from .jobs import FINAL, JobError, new_id
 
 CONTROL = {"type", "kind", "priority", "webhook", "idempotency_key", "wait"}
@@ -56,6 +56,8 @@ class Service:
             if model not in k.cfg.capability_models(kind):
                 raise JobError(f"model {model!r} can't do {kind}; use one of: {', '.join(k.cfg.capability_models(kind))}")
         params["model"] = model
+        if kind == "speech" and body.get("voice") in workflows().VOICES:   # a built-in voice, not a file
+            params["voice"], body = body["voice"], {**body, "voice": None}
         if kind != "text" and params.get("seed") is None:
             params["seed"] = new_seed()  # fixed now, so a resumed job continues the same picture
         job_id = new_id()

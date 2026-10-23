@@ -25,12 +25,20 @@ prefetch_comfyui() {
   [ "$top" = "ComfyUI-$sha/" ] || { echo "comfyui tarball is not commit $sha" >&2; exit 1; }
 }
 
+prefetch_indextts() {
+  prefetch_comfyui
+  local f="$ROOT/engines/comfyui/.dl/indextts.tar.gz" sha=d9e41aac89fd00b3d71497fddb287b7f24613712
+  [ -s "$f" ] || curl -fsSL -o "$f" "https://codeload.github.com/index-tts/index-tts/tar.gz/$sha"
+  local top; top="$(tar -tzf "$f" 2>/dev/null | head -1 || true)"
+  [ "$top" = "index-tts-$sha/" ] || { echo "index-tts tarball is not commit $sha" >&2; exit 1; }
+}
+
 # tag | build context | prefetch fn | build args
 IMAGES=(
   "karspark/hf-cli:2.2.0-xet1.7.0|engines/hf-cli||"
-  "karspark/core:0.1.0-r11|core|prefetch_core|"
+  "karspark/core:0.1.0-r12|core|prefetch_core|"
   "karspark/bench:4|bench||"
-  "karspark/comfyui:0.42.4-r6|engines/comfyui|prefetch_comfyui|"
+  "karspark/comfyui:0.42.4-r7|engines/comfyui|prefetch_indextts|"
   "karspark/vllm-salient:2026-10-14-77154ca6|engines/vllm-salient/upstream||BASE=vllm/vllm-openai@sha256:a7deff2c216def98c193352aca50fb03a2ee29231355b3033dc3789009f6d23e"
 )
 for line in "${IMAGES[@]}"; do
