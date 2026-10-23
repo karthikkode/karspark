@@ -23,8 +23,8 @@ the Spark. UI: `/ui`.
 | `Comfy-Org/SeedVR2@df488797` (7B fp16, 7B sharp int8, 3B fp16, VAE) | `~/models/image/seedvr2` | 32.1 GB | `comfyui_auto` (upscale: `seedvr2-*`) |
 | RealESRGAN x4plus anime 6B (GitHub v0.2.2.4 → safetensors, `scripts/fetch-pth.sh`) | `~/models/image/upscale-gan` | 18 MB | `comfyui_auto` (upscale: `esrgan-anime`, `flux2-refine`) |
 
-**Ready to deploy (2026-10-23):** engine image `karspark/comfyui:0.42.4-r3` is built, the recipe is
-`recipes/comfyui/comfy.yaml` (aliases `flux2-dev`, `ltx-2.5`, `qwen-image-layered`; upscaling at `/upstream/comfyui_auto/v1/{images,videos}/upscale`), and all graphs in
+**Ready to deploy (2026-10-23):** engine image `karspark/comfyui:0.42.4-r4` (job API + pausable sampler; build pending) replaces r3, the recipe is
+`recipes/comfyui/comfy.yaml` (aliases `flux2-dev`, `ltx-2.5`, `qwen-image-layered`), and all graphs in
 `engines/comfyui/adapter/workflows.py` pass ComfyUI's own validator (`scripts/validate-comfy-graphs.sh`).
 Not yet run on the GPU, so there are no timings. Deploying unloads Flash-Next.
 
@@ -41,7 +41,7 @@ Everything runs in Docker. Nothing is installed on the host except Docker itself
 | `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM | Docker Hub, pinned digest |
 | `karspark/hf-cli:2.2.0` | model downloads | `engines/hf-cli/Dockerfile` |
 | `karspark/bench:1` | benchmark harness | `bench/Dockerfile` |
-| `karspark/comfyui:0.42.4-r3` | ComfyUI + torch 2.13 cu130 + OpenAI-style adapter | `engines/comfyui/Dockerfile` |
+| `karspark/comfyui:0.42.4-r4` | ComfyUI + torch 2.13 cu130 + karspark job adapter + pausable sampler nodes | `engines/comfyui/Dockerfile` |
 
 ## Ports
 

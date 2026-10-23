@@ -8,7 +8,7 @@ HOST="${1:-spark}"
 IMAGE="$(sed -n 's/^.*\(karspark\/comfyui:[^ ]*\).*$/\1/p' "$ROOT/recipes/comfyui/comfy.yaml" | head -1)"
 E="$ROOT/engines/comfyui"
 ssh "$HOST" 'rm -rf ~/scratch/.comfy-check && mkdir -p ~/scratch/.comfy-check'
-tar -C "$E" -cf - adapter tools extra_model_paths.yaml | ssh "$HOST" 'tar -C ~/scratch/.comfy-check -xf -'
+tar -C "$E" -cf - adapter tools karspark_nodes extra_model_paths.yaml | ssh "$HOST" 'tar -C ~/scratch/.comfy-check -xf -'
 ssh "$HOST" "d=~/scratch/.comfy-check; docker run --rm --memory 4g -v ~/models:/models:ro \
-  -v \$d/adapter:/opt/adapter:ro -v \$d/tools:/opt/tools:ro -v \$d/extra_model_paths.yaml:/opt/comfyui/extra_model_paths.yaml:ro \
+  -v \$d/adapter:/opt/adapter:ro -v \$d/tools:/opt/tools:ro -v \$d/karspark_nodes:/opt/karspark_nodes:ro -v \$d/extra_model_paths.yaml:/opt/comfyui/extra_model_paths.yaml:ro \
   --entrypoint python3 $IMAGE /opt/tools/validate_graphs.py 2>&1 | grep -E '^(OK|FAIL| )' ; rc=\${PIPESTATUS[0]}; rm -rf \$d; exit \$rc"

@@ -22,44 +22,51 @@ import folder_paths  # noqa: E402
 import utils.extra_config  # noqa: E402
 
 utils.extra_config.load_extra_path_config("/opt/comfyui/extra_model_paths.yaml")
-os.makedirs("/tmp/comfy-in", exist_ok=True)
-folder_paths.set_input_directory("/tmp/comfy-in")
+# The adapter's layout: ComfyUI's input folder is the jobs folder, inputs live in <job>/in/.
+IN = "/tmp/jobs/j1/in"
+os.makedirs(IN, exist_ok=True)
+folder_paths.set_input_directory("/tmp/jobs")
 
 import execution  # noqa: E402
 import nodes  # noqa: E402
 import workflows  # noqa: E402
 from PIL import Image  # noqa: E402
 
-for name in ("ref1.png", "ref2.png"):
-    Image.new("RGB", (832, 1216), "white").save(f"/tmp/comfy-in/{name}")
-subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=s=640x360:d=1:r=24", "-f", "lavfi",
-                "-i", "sine=d=1", "-shortest", "/tmp/comfy-in/clip.mp4"], check=True)
+sys.path.append(os.environ.get("NODES_PARENT", "/opt"))
+import karspark_nodes  # noqa: E402
 
+for name in ("ref1.png", "ref2.png"):
+    Image.new("RGB", (832, 1216), "white").save(f"{IN}/{name}")
+subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=s=640x360:d=1:r=24", "-f", "lavfi",
+                "-i", "sine=d=1", "-shortest", f"{IN}/clip.mp4"], check=True)
+
+R1, R2, CLIP = "j1/in/ref1.png", "j1/in/ref2.png", "j1/in/clip.mp4"
 CASES = [
-    ("flux2 text-to-image", "image", {"model": "flux2-dev", "prompt": "a cat", "size": "1024x1536"}, []),
-    ("flux2 2 refs (turbo)", "image", {"model": "flux2-dev", "prompt": "the girl from image 1 in the outfit from image 2"},
-     ["ref1.png", "ref2.png"]),
-    ("flux2 base 20 steps", "image", {"model": "flux2-dev", "prompt": "a cat", "turbo": False}, ["ref1.png"]),
-    ("qwen image->layers", "image", {"model": "qwen-image-layered", "layers": 4}, ["ref1.png"]),
-    ("qwen text->layers", "image", {"model": "qwen-image-layered", "prompt": "a cafe", "size": "640x640"}, []),
-    ("ltx-2.5 i2v", "video", {"prompt": "she turns and smiles", "duration": 5}, "ref1.png"),
-    ("ltx-2.5 t2v", "video", {"prompt": "a train crossing a bridge at dusk", "size": "1280x704"}, None),
-    ("upscale seedvr2-7b", "upimage", {"model": "seedvr2-7b", "scale": 4}, "ref1.png"),
-    ("upscale seedvr2-7b-sharp", "upimage", {"model": "seedvr2-7b-sharp"}, "ref1.png"),
-    ("upscale flux2-refine", "upimage", {"model": "flux2-refine", "prompt": "anime girl"}, "ref1.png"),
-    ("upscale esrgan-anime", "upimage", {"model": "esrgan-anime", "scale": 4}, "ref1.png"),
-    ("video upscale seedvr2-3b", "upvideo", {}, "clip.mp4"),
-    ("video upscale seedvr2-7b", "upvideo", {"model": "seedvr2-7b", "scale": 1.5}, "clip.mp4"),
+    ("flux2 text-to-image", "image", {"prompt": "a cat", "size": "1024x1536"}, {}),
+    ("flux2 2 refs (turbo)", "image", {"prompt": "the girl from image 1 in the outfit from image 2"},
+     {"reference_images": [R1, R2]}),
+    ("flux2 base 20 steps", "image", {"prompt": "a cat", "turbo": False}, {"reference_images": [R1]}),
+    ("qwen image->layers", "layers", {"layers": 4}, {"image": R1}),
+    ("qwen text->layers", "layers", {"prompt": "a cafe", "size": "640x640"}, {}),
+    ("ltx t2v (silent)", "video", {"prompt": "a train crossing a bridge at dusk", "size": "1280x704"}, {}),
+    ("ltx i2v (sfx)", "video", {"prompt": "she turns and smiles", "audio": "sfx"}, {"first_frame": R1}),
+    ("ltx first+last frame", "video", {"prompt": "she walks to the door"}, {"first_frame": R1, "last_frame": R2}),
+    ("upscale seedvr2-7b", "upscale_image", {"scale": 4}, {"image": R1}),
+    ("upscale seedvr2-7b-sharp", "upscale_image", {"model": "seedvr2-7b-sharp"}, {"image": R1}),
+    ("upscale flux2-refine", "upscale_image", {"model": "flux2-refine", "prompt": "anime girl"}, {"image": R1}),
+    ("upscale esrgan-anime", "upscale_image", {"model": "esrgan-anime", "scale": 4}, {"image": R1}),
+    ("video upscale seedvr2-3b", "upscale_video", {}, {"video": CLIP}),
+    ("video upscale seedvr2-7b", "upscale_video", {"model": "seedvr2-7b", "scale": 1.5}, {"video": CLIP}),
 ]
-BUILD = {"image": workflows.build_image, "video": workflows.build_video,
-         "upimage": workflows.build_upscale_image, "upvideo": workflows.build_upscale_video}
+CTX = {"job_dir": "/tmp/jobs/j1", "run_id": "check", "out": "j1/out"}
 
 
 async def main():
     await nodes.init_extra_nodes(init_custom_nodes=False, init_api_nodes=False)
+    nodes.NODE_CLASS_MAPPINGS.update(karspark_nodes.NODE_CLASS_MAPPINGS)
     bad = 0
-    for label, kind, req, inp in CASES:
-        graph = BUILD[kind](req, inp, 1) if kind in ("image", "video") else BUILD[kind](req, inp)
+    for label, kind, params, inputs in CASES:
+        graph = workflows.build(kind, {**params, "seed": 1}, inputs, CTX)
         ok, err, outputs, node_errors = (await execution.validate_prompt("check", graph, None))[:4]
         print(f"{'OK  ' if ok else 'FAIL'} {label:<24} {len(graph)} nodes")
         if not ok:

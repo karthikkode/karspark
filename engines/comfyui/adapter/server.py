@@ -1,25 +1,34 @@
 #!/usr/bin/env python3
 """karspark ComfyUI adapter: one process in front of ComfyUI, inside the karspark/comfyui container.
 
-  - starts ComfyUI on 127.0.0.1:8188 (inside the container) and waits for it
-  - POST /v1/images/generations   OpenAI-style images API (FLUX.2), see workflows.py
-  - POST /v1/videos/generations   LTX-2.5 image/text-to-video (karspark extension, same shape)
-  - POST /v1/images/upscale        SeedVR2 / FLUX.2 refine / RealESRGAN-anime (karspark extension)
-  - POST /v1/videos/upscale        SeedVR2 video upscale, keeps audio and fps (karspark extension)
-  - everything else (UI, /prompt, /history, /view, /ws) is proxied to ComfyUI unchanged, so the
-    gateway's /comfyui/ endpoint serves the full ComfyUI app and native API.
+karspark-core is the only caller. It owns jobs, queues and files; this adapter turns one job into one
+ComfyUI run and reports on it. Jobs share a directory with core, mounted at /jobs:
 
-Listens on 0.0.0.0:8000 in the container; the recipe publishes it on 127.0.0.1 only.
+  /jobs/<job_id>/in/...        inputs, written by core (ComfyUI's input folder is /jobs)
+  /jobs/<job_id>/out/...       outputs (ComfyUI's output folder is /jobs too)
+  /jobs/<job_id>/ckpt/...      sampler checkpoints (karspark_nodes), so a paused job keeps its progress
+  /jobs/<job_id>/progress.json current stage and step
+  /jobs/<job_id>/PAUSE         pause request, checked at every sampling step
+
+API (127.0.0.1 only; the recipe publishes it to core, never to the network):
+  POST /v1/run              {job_id, run_id, kind, params, inputs} -> 202 {prompt_id}  (400 on a bad graph)
+  GET  /v1/jobs/{id}        {state: running|succeeded|paused|cancelled|failed, progress, outputs, error}
+  POST /v1/jobs/{id}/pause  stop at the next sampling step, keeping a checkpoint
+  POST /v1/jobs/{id}/cancel stop now; checkpoints are left for core to delete
+  POST /v1/free             unload ComfyUI's cached models (between model families, or before a mode switch)
+  GET  /v1/models, /health
+  everything else is proxied to ComfyUI unchanged (UI, native API, websockets) for /comfyui/ on core.
+
+Resume = POST /v1/run again with the same job_id and a new run_id: finished stages are read back and the
+interrupted stage continues from its saved step.
 """
 import asyncio
-import base64
 import json
 import os
-import random
 import subprocess
 import sys
 import time
-import uuid
+from pathlib import Path
 
 import aiohttp
 from aiohttp import web
@@ -29,13 +38,13 @@ import workflows  # noqa: E402
 
 COMFY = "http://127.0.0.1:8188"
 COMFY_ARGS = os.environ.get("COMFY_ARGS", "").split()
-JOB_TIMEOUT_S = int(os.environ.get("JOB_TIMEOUT_S", "3600"))
+JOBS = Path(os.environ.get("JOBS_DIR", "/jobs"))
+VIDEO_EXT = (".mp4", ".webm", ".mov", ".mkv")
 
 
 def start_comfy():
     cmd = [sys.executable, "/opt/comfyui/main.py", "--listen", "127.0.0.1", "--port", "8188",
-           "--disable-auto-launch", "--output-directory", "/tmp/comfy-out", "--input-directory", "/tmp/comfy-in",
-           *COMFY_ARGS]
+           "--disable-auto-launch", "--output-directory", str(JOBS), "--input-directory", str(JOBS), *COMFY_ARGS]
     print("[adapter] starting:", " ".join(cmd), flush=True)
     return subprocess.Popen(cmd)
 
@@ -49,126 +58,132 @@ async def wait_comfy(session, proc):
                 if r.status == 200:
                     print("[adapter] ComfyUI is up", flush=True)
                     return
-        except aiohttp.ClientError:
-            pass
-        except asyncio.TimeoutError:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             pass
         await asyncio.sleep(1)
 
 
-# ---------------------------------------------------------------- jobs through ComfyUI's native API
-async def upload_image(session, b64, ext="png", content_type="image/png"):
-    """Put a base64 file in ComfyUI's input folder (its upload endpoint takes videos too)."""
-    raw = base64.b64decode(b64.split(",", 1)[-1])
-    form = aiohttp.FormData()
-    form.add_field("image", raw, filename=f"in-{uuid.uuid4().hex}.{ext}", content_type=content_type)
-    form.add_field("overwrite", "true")
-    async with session.post(f"{COMFY}/upload/image", data=form) as r:
-        r.raise_for_status()
-        return (await r.json())["name"]
+def err(msg, status=400, **extra):
+    return web.json_response({"error": {"message": msg, **extra}}, status=status)
 
 
-async def run_graph(session, graph):
-    """Queue an API-format graph, wait for it, return the list of output files (bytes, filename)."""
-    client_id = uuid.uuid4().hex
-    async with session.post(f"{COMFY}/prompt", json={"prompt": graph, "client_id": client_id}) as r:
-        body = await r.json()
-        if r.status != 200:
-            raise web.HTTPBadRequest(text=json.dumps({"error": {"message": "ComfyUI rejected the workflow", "detail": body}}),
-                                     content_type="application/json")
-        pid = body["prompt_id"]
-    deadline = time.time() + JOB_TIMEOUT_S
-    while time.time() < deadline:
-        async with session.get(f"{COMFY}/history/{pid}") as r:
+def job_dir(job_id):
+    if not job_id or "/" in job_id or job_id.startswith("."):
+        raise web.HTTPBadRequest(text="bad job_id")
+    return JOBS / job_id
+
+
+# ---------------------------------------------------------------- jobs
+# job_id -> {"prompt_id", "run_id", "cancel": bool, "final": dict | None}. Lost on restart, which also
+# restarts ComfyUI; core then sees 404 and runs the job again from its checkpoints.
+RUNS = {}
+
+
+async def run(request):
+    body = await request.json()
+    job_id, kind = body.get("job_id"), body.get("kind")
+    d = job_dir(job_id)
+    cur = RUNS.get(job_id)
+    if cur and cur["final"] is None:
+        return err("job is already running", 409)
+    (d / "out").mkdir(parents=True, exist_ok=True)
+    (d / "PAUSE").unlink(missing_ok=True)
+    (d / "progress.json").unlink(missing_ok=True)
+    run_id = body.get("run_id") or str(time.time_ns())
+    ctx = {"job_dir": str(d), "run_id": run_id, "out": f"{job_id}/out"}
+    inputs = {k: (f"{job_id}/in/{v}" if isinstance(v, str) else [f"{job_id}/in/{x}" for x in v])
+              for k, v in (body.get("inputs") or {}).items()}
+    try:
+        graph = workflows.build(kind, body.get("params") or {}, inputs, ctx)
+    except workflows.WorkflowError as e:
+        return err(str(e))
+    session = request.app["session"]
+    async with session.post(f"{COMFY}/prompt", json={"prompt": graph, "client_id": "karspark"}) as r:
+        res = await r.json()
+    if r.status != 200:
+        return err("ComfyUI rejected the workflow", 400, detail=res)
+    RUNS[job_id] = {"prompt_id": res["prompt_id"], "run_id": run_id, "cancel": False, "final": None}
+    return web.json_response({"prompt_id": res["prompt_id"], "run_id": run_id}, status=202)
+
+
+def _progress(d):
+    try:
+        return json.loads((d / "progress.json").read_text())
+    except (OSError, ValueError):
+        return None
+
+
+async def _final_state(session, job_id, entry):
+    """ComfyUI's verdict on a finished prompt, mapped onto karspark states."""
+    status = entry.get("status", {})
+    if status.get("completed"):
+        outputs = []
+        for node_out in entry.get("outputs", {}).values():
+            for key in ("images", "gifs", "videos", "audio"):
+                for f in node_out.get(key) or []:
+                    if isinstance(f, dict) and f.get("type", "output") == "output":
+                        outputs.append("/".join(p for p in (f.get("subfolder"), f["filename"]) if p))
+        return {"state": "succeeded", "outputs": outputs}
+    msgs = [m[0] for m in status.get("messages", []) if m]
+    if "execution_interrupted" in msgs:
+        if RUNS[job_id]["cancel"]:
+            return {"state": "cancelled"}
+        return {"state": "paused"}
+    detail = next((m[1] for m in status.get("messages", []) if m and m[0] == "execution_error"), status)
+    return {"state": "failed", "error": detail}
+
+
+async def job_status(request):
+    job_id = request.match_info["id"]
+    d = job_dir(job_id)
+    cur = RUNS.get(job_id)
+    if not cur:
+        return err("unknown job", 404)
+    if cur["final"] is None:
+        session = request.app["session"]
+        async with session.get(f"{COMFY}/history/{cur['prompt_id']}") as r:
             h = await r.json()
-        if pid in h:
-            entry = h[pid]
-            status = entry.get("status", {})
-            if status.get("status_str") == "error":
-                raise web.HTTPInternalServerError(text=json.dumps({"error": {"message": "ComfyUI job failed", "detail": status}}),
-                                                  content_type="application/json")
-            if status.get("completed"):
-                files = []
-                for out in entry.get("outputs", {}).values():
-                    for key in ("images", "gifs", "videos", "audio"):
-                        for f in out.get(key, []):
-                            params = {"filename": f["filename"], "subfolder": f.get("subfolder", ""), "type": f.get("type", "output")}
-                            async with session.get(f"{COMFY}/view", params=params) as v:
-                                files.append((await v.read(), f["filename"]))
-                return files
-        await asyncio.sleep(0.5)
-    raise web.HTTPGatewayTimeout(text="ComfyUI job timed out")
+        if cur["prompt_id"] in h:
+            cur["final"] = await _final_state(session, job_id, h[cur["prompt_id"]])
+            (d / "PAUSE").unlink(missing_ok=True)
+            async with session.post(f"{COMFY}/history", json={"delete": [cur["prompt_id"]]}):
+                pass
+    out = cur["final"] or {"state": "running"}
+    return web.json_response({**out, "job_id": job_id, "run_id": cur["run_id"], "progress": _progress(d)})
 
 
-def openai_error(msg, status=400):
-    return web.json_response({"error": {"message": msg, "type": "invalid_request_error"}}, status=status)
+async def pause(request):
+    job_id = request.match_info["id"]
+    cur = RUNS.get(job_id)
+    if not cur or cur["final"] is not None:
+        return err("job is not running", 409)
+    (job_dir(job_id) / "PAUSE").touch()
+    return web.json_response({"state": "pausing"}, status=202)
 
 
-async def images_generations(request):
-    req = await request.json()
+async def cancel(request):
+    job_id = request.match_info["id"]
+    cur = RUNS.get(job_id)
+    if not cur or cur["final"] is not None:
+        return err("job is not running", 409)
+    cur["cancel"] = True
     session = request.app["session"]
-    try:
-        # "image" (the picture to split, for qwen-image-layered) goes first, then any reference images.
-        sources = ([req["image"]] if req.get("image") else []) + list(req.get("reference_images") or [])
-        refs = [await upload_image(session, b) for b in sources]
-        n = max(1, min(int(req.get("n", 1)), 8))
-        seed = req.get("seed")
-        seed = int(seed) if seed is not None else random.randint(0, 2**31 - 1)
-        data = []
-        for i in range(n):
-            graph = workflows.build_image(req, refs, seed + i)
-            for raw, name in await run_graph(session, graph):
-                data.append({"b64_json": base64.b64encode(raw).decode(), "revised_prompt": req.get("prompt"), "seed": seed + i})
-    except workflows.WorkflowError as e:
-        return openai_error(str(e))
-    return web.json_response({"created": int(time.time()), "data": data})
+    async with session.post(f"{COMFY}/queue", json={"delete": [cur["prompt_id"]]}):
+        pass
+    async with session.post(f"{COMFY}/interrupt", json={"prompt_id": cur["prompt_id"]}):
+        pass
+    return web.json_response({"state": "cancelling"}, status=202)
 
 
-async def videos_generations(request):
-    req = await request.json()
-    session = request.app["session"]
-    try:
-        image = await upload_image(session, req["image"]) if req.get("image") else None
-        seed = int(req["seed"]) if req.get("seed") is not None else random.randint(0, 2**31 - 1)
-        graph = workflows.build_video(req, image, seed)
-        files = await run_graph(session, graph)
-    except workflows.WorkflowError as e:
-        return openai_error(str(e))
-    vids = [(raw, name) for raw, name in files if name.lower().endswith((".mp4", ".webm", ".mov"))] or files
-    return web.json_response({"created": int(time.time()), "seed": seed,
-                              "data": [{"b64_json": base64.b64encode(raw).decode(), "filename": name} for raw, name in vids]})
-
-
-async def images_upscale(request):
-    req = await request.json()
-    session = request.app["session"]
-    seed = int(req["seed"]) if req.get("seed") is not None else random.randint(0, 2**31 - 1)
-    try:
-        image = await upload_image(session, req["image"]) if req.get("image") else None
-        files = await run_graph(session, workflows.build_upscale_image({**req, "seed": seed}, image))
-    except workflows.WorkflowError as e:
-        return openai_error(str(e))
-    return web.json_response({"created": int(time.time()), "seed": seed,
-                              "data": [{"b64_json": base64.b64encode(raw).decode()} for raw, _ in files]})
-
-
-async def videos_upscale(request):
-    req = await request.json()
-    session = request.app["session"]
-    seed = int(req["seed"]) if req.get("seed") is not None else random.randint(0, 2**31 - 1)
-    try:
-        video = await upload_image(session, req["video"], "mp4", "video/mp4") if req.get("video") else None
-        files = await run_graph(session, workflows.build_upscale_video({**req, "seed": seed}, video))
-    except workflows.WorkflowError as e:
-        return openai_error(str(e))
-    vids = [(raw, name) for raw, name in files if name.lower().endswith((".mp4", ".webm", ".mov"))] or files
-    return web.json_response({"created": int(time.time()), "seed": seed,
-                              "data": [{"b64_json": base64.b64encode(raw).decode(), "filename": name} for raw, name in vids]})
+async def free(request):
+    async with request.app["session"].post(f"{COMFY}/free", json={"unload_models": True, "free_memory": True}) as r:
+        return web.json_response({"ok": r.status == 200})
 
 
 async def models(request):
-    return web.json_response({"object": "list", "data": [{"id": m, "object": "model", "owned_by": "karspark"}
-                                                     for m in workflows.MODELS + workflows.UPSCALE_MODELS]})
+    return web.json_response({"object": "list", "data": [
+        {"id": m, "object": "model", "owned_by": "karspark", "kind": kind, "default": i == 0}
+        for kind, names in workflows.MODELS.items() for i, m in enumerate(names)]})
 
 
 async def health(request):
@@ -223,16 +238,16 @@ async def on_cleanup(app):
 
 
 def main():
-    os.makedirs("/tmp/comfy-out", exist_ok=True)
-    os.makedirs("/tmp/comfy-in", exist_ok=True)
-    app = web.Application(client_max_size=256 * 1024 * 1024)
+    JOBS.mkdir(parents=True, exist_ok=True)
+    app = web.Application(client_max_size=16 * 1024 * 1024)
     app["proc"] = start_comfy()
     app.router.add_get("/health", health)
     app.router.add_get("/v1/models", models)
-    app.router.add_post("/v1/images/generations", images_generations)
-    app.router.add_post("/v1/videos/generations", videos_generations)
-    app.router.add_post("/v1/images/upscale", images_upscale)
-    app.router.add_post("/v1/videos/upscale", videos_upscale)
+    app.router.add_post("/v1/run", run)
+    app.router.add_get("/v1/jobs/{id}", job_status)
+    app.router.add_post("/v1/jobs/{id}/pause", pause)
+    app.router.add_post("/v1/jobs/{id}/cancel", cancel)
+    app.router.add_post("/v1/free", free)
     app.router.add_route("*", "/{tail:.*}", proxy)
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)
