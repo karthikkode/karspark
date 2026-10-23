@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Manage karspark API keys (one per project) through core's admin API, using the owner key on the Spark.
+#   scripts/karspark-keys list
+#   scripts/karspark-keys create <project-name> <owner|critical|standard|batch>    prints the new key ONCE
+#   scripts/karspark-keys rotate <key_id>                                         prints the new key ONCE
+#   scripts/karspark-keys revoke <key_id>
+#   scripts/karspark-keys tier <key_id> <tier>
+# HOST=spark-lan scripts/karspark-keys list   to go over the home LAN.
+set -euo pipefail
+HOST="${HOST:-spark}"
+call() {  # method path [json]  -- the owner key is read on the Spark, never leaves it except in this request
+  ssh "$HOST" "K=\$(sed -n 's/^KARSPARK_API_KEY=//p' ~/core/env); curl -s -m20 -X $1 localhost:8080$2 \
+    -H \"Authorization: Bearer \$K\" -H 'Content-Type: application/json' ${3:+-d '$3'}"; echo
+}
+case "${1:-}" in
+  list)   call GET /admin/keys ;;
+  create) [ $# -eq 3 ] || { echo "usage: $0 create <name> <tier>" >&2; exit 2; }
+          call POST /admin/keys "{\"name\": \"$2\", \"tier\": \"$3\"}" ;;
+  rotate) call POST "/admin/keys/$2/rotate" ;;
+  revoke) call POST "/admin/keys/$2/revoke" ;;
+  tier)   call PATCH "/admin/keys/$2" "{\"tier\": \"$3\"}" ;;
+  *) sed -n '2,8p' "$0"; exit 2 ;;
+esac

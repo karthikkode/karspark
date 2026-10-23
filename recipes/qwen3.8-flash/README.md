@@ -11,7 +11,7 @@
 
 | id | engine | memory | notes |
 |---|---|---|---|
-| `qwen3.8-flash:vllm-salient` (alias **`qwen3.8-flash`**) | [vllm-salient](../../engines/vllm-salient/README.md) build 2026-10-14-77154ca6 | ~100 GiB (0.80 util, 112g cap). Runs alone | MTP up to 6 drafts with a confidence stop (3 under load), FP8 KV, prefix caching, `qwen3_xml` tools, `qwen3` reasoning, thinking **off** by default, max 6 concurrent sequences |
+| `qwen3.8-flash:vllm-salient` (model **`qwen3.8-flash`**, mode `coding`, port 10011) | [vllm-salient](../../engines/vllm-salient/README.md) build 2026-10-14-77154ca6 | ~100 GiB (0.80 util, 112g cap). Runs alone | MTP up to 6 drafts with a confidence stop (3 under load), FP8 KV, prefix caching, `qwen3_xml` tools, `qwen3` reasoning, thinking **off** by default, max 6 concurrent sequences |
 
 ## Using it
 

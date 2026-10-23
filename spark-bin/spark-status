@@ -5,22 +5,28 @@ mem=$(free -g | awk '/Mem:/ {print $3"/"$2" GiB"}')
 disk=$(df -h / | awk 'NR==2 {print $3"/"$2}')
 echo "── $(hostname) ── $(uptime -p) ── mem $mem ── disk $disk"
 
-key="$(sed -n 's/^KARSPARK_API_KEY=//p' ~/gateway/env 2>/dev/null)"
-gw="$(systemctl --user is-active karspark-gateway 2>/dev/null)"
-echo "   gateway :8080  $gw   (UI: http://<spark>:8080/ui)"
-if [ "$gw" = active ]; then
+envf=~/core/env; [ -s "$envf" ] || envf=~/gateway/env   # gateway: before the karspark-core cutover
+key="$(sed -n 's/^KARSPARK_API_KEY=//p' "$envf" 2>/dev/null)"
+core="$(systemctl --user is-active karspark-core 2>/dev/null)"
+if [ "$core" = active ]; then
+  echo "   karspark-core :8080  active   (UI: http://<spark>:8080/ui)"
   read -r -d '' py <<'PY'
 import sys, json
 try:
-    r = json.load(sys.stdin).get("running", [])
+    s = json.load(sys.stdin)
 except Exception:
-    r = []
-loaded = ", ".join("%s (%s, ttl %ss)" % (m.get("model"), m.get("state"), m.get("ttl")) for m in r)
-print("   loaded: " + (loaded or "none (models load on first request)"))
+    print("   (status unavailable)"); sys.exit()
+m = s["mode"]
+hold = " (%s hold %d min)" % (m["hold"]["kind"], m["hold"]["ends_in_s"] // 60) if m.get("hold") else ""
+print("   mode: %s%s%s" % (m["current"], " -> " + m["switching"] if m.get("switching") else "", hold))
+print("   engines: " + ", ".join("%s %s" % (e["recipe"], e["state"]) for e in s["engines"] if e["state"] != "stopped") or "none")
+q = s["queued"]
+print("   jobs: %d running, %d queued, %d paused · text streams: %d" % (len(s["running_jobs"]), q["total"], s["paused"], len(s["text_streams"])))
 PY
-  curl -s -m4 localhost:8080/running -H "Authorization: Bearer $key" 2>/dev/null | python3 -c "$py"
-  n=$(curl -s -m4 localhost:8080/v1/models -H "Authorization: Bearer $key" | python3 -c 'import sys,json;print(len(json.load(sys.stdin)["data"]))' 2>/dev/null)
-  echo "   recipes available: ${n:-?}"
+  curl -s -m4 localhost:8080/v1/status -H "Authorization: Bearer $key" 2>/dev/null | python3 -c "$py"
+else
+  gw="$(systemctl --user is-active karspark-gateway 2>/dev/null)"
+  echo "   karspark-core: ${core:-inactive}   (pre-core gateway: ${gw:-inactive})"
 fi
 [ "${1:-}" = "--brief" ] && exit 0
 
@@ -29,8 +35,8 @@ echo "containers:"; docker ps --format '   {{.Names}}  {{.Status}}  {{.Ports}}'
 echo "models on disk:"; du -sh ~/models/*/* 2>/dev/null | grep -v '\.fetch\.log' | sed 's/^/   /'
 echo "fetches:"; for l in ~/models/*/*.fetch.log; do [ -f "$l" ] && printf '   %s: %s\n' "$(basename "$l" .fetch.log)" "$(tail -c 200 "$l" | tr '\r' '\n' | tail -1)"; done
 echo "scratch:"; du -sh ~/scratch/* 2>/dev/null | sed 's/^/   /'
-big=$(find ~/.cache ~/engines ~/gateway -type f -size +200M 2>/dev/null)
+big=$(find ~/.cache ~/engines ~/core -type f -size +200M 2>/dev/null)
 [ -n "$big" ] && { echo "RULE VIOLATION: large files outside ~/models (model data must live in ~/models):"; echo "$big" | sed 's/^/   /'; }
-stray=$(find ~ -mindepth 1 -maxdepth 1 ! -name '.*' ! -name models ! -name engines ! -name gateway ! -name bin ! -name scratch ! -name snap 2>/dev/null)
+stray=$(find ~ -mindepth 1 -maxdepth 1 ! -name '.*' ! -name models ! -name engines ! -name core ! -name data ! -name gateway ! -name bin ! -name scratch ! -name snap 2>/dev/null)
 [ -n "$stray" ] && { echo "OFF-STANDARD in ~ (move to scratch/ or delete):"; echo "$stray" | sed 's/^/   /'; }
 exit 0

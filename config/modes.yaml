@@ -1,0 +1,17 @@
+# Which engines are loaded together. Exactly one mode is active; karspark-core switches between them.
+# docs/modes.md explains the rules. Memory per mode is checked against 115 GiB at deploy.
+default_mode: coding        # at boot, and where the box returns after idle_return_s without work
+coding_hold_s: 1800         # coding stays this long after the last coding request
+idle_return_s: 3600
+stream_grace_s: 60          # text streams get this long to finish before a switch stops their engine
+modes:
+  coding:
+    coding: true            # P0, owner keys only; entering it pauses media jobs (no progress lost)
+    engines: ["qwen3.8-flash:vllm-salient"]
+    text: qwen3.8-flash
+  creative:
+    engines: ["qwen3.8-27b:vllm", "comfyui:comfy"]
+    text: qwen3.8-27b
+  test:                     # integration tests on the box
+    engines: ["qwen3-0.6b:vllm"]
+    text: qwen3-0.6b

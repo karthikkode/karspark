@@ -3,55 +3,47 @@
 Defines everything that runs on our **DGX Spark** (`edgexpert-bd12`, GB10, 121 GiB unified memory).
 If it isn't in this repo, it isn't supposed to be on the Spark.
 
-## One endpoint for every model
+## One service for every model
 
 ```
-http://100.101.249.74:8080/v1      OpenAI-compatible (chat, embeddings, audio, images) + Anthropic /v1/messages
-Authorization: Bearer <KARSPARK_API_KEY>       (key lives in ~/gateway/env on the Spark)
-http://100.101.249.74:8080/ui      dashboard: loaded models, logs, load/unload
+http://100.101.249.74:8080/v1     OpenAI + Anthropic text APIs, /v1/jobs (images, layers, video, upscaling), /v1/files
+http://100.101.249.74:8080/mcp    the `karspark` MCP server (Streamable HTTP)
+http://100.101.249.74:8080/ui     live dashboard: mode, engines, queue, jobs
+Authorization: Bearer <project key>          (or x-api-key: <key> for Anthropic SDKs)
 ```
 
-The key works as `Authorization: Bearer <key>` or `x-api-key: <key>` (Anthropic SDKs). The `/ui` page
-asks the browser for a login: any username, with the key as the password.
+**karspark-core** owns the GPU. Projects call it as a black box: they submit work, and core decides what
+is loaded, queues by priority and fair share, pauses and resumes jobs without losing progress, and logs
+every request. Start here: [docs/integrating.md](docs/integrating.md).
 
-The gateway is **llama-swap**. Ask for a model by name, and it starts that model's backend on demand
-(stopping whatever has to make room), proxies the request, and unloads the model when it goes idle. Each
-model can have several **recipes** (engine + flags), named `<model>:<recipe>`. The bare `<model>` alias
-points at the default recipe.
-
-Get the key on the laptop:
+Each project gets its own key with a tier (`scripts/karspark-keys create <project> <tier>`). The owner key
+`karthik-coding` is the pre-core key, imported as-is:
 
 ```bash
-ssh spark "sed -n 's/^KARSPARK_API_KEY=//p' ~/gateway/env"
+ssh spark "sed -n 's/^KARSPARK_API_KEY=//p' ~/core/env"
 ```
 
 What's deployed: [docs/registry.md](docs/registry.md).
 
 ## Docs
 
-- [docs/architecture.md](docs/architecture.md): why a single gateway, and how recipes and coexistence work
+- [docs/integrating.md](docs/integrating.md): how another project uses karspark (keys, priorities, jobs, MCP)
+- [docs/api.md](docs/api.md) · [docs/mcp.md](docs/mcp.md): the HTTP API and the MCP tools
+- [docs/concepts.md](docs/concepts.md) · [docs/modes.md](docs/modes.md) · [docs/scheduler.md](docs/scheduler.md) · [docs/logging.md](docs/logging.md)
+- [docs/architecture.md](docs/architecture.md): why karspark-core, and how it fits together
 - [docs/standard.md](docs/standard.md): layout and the checklist for adding a model
 - [docs/registry.md](docs/registry.md): recipes, engines and ports actually on the box
-- [docs/lessons.md](docs/lessons.md): working recipes and GB10 traps from the first setup
+- [docs/lessons.md](docs/lessons.md): working recipes and GB10 traps
 
 ## Commands
 
-Status (the same summary prints when you SSH in):
-
 ```bash
-scripts/status.sh
-```
-
-Download weights at a pinned revision:
-
-```bash
-scripts/fetch-model.sh <hf-repo> <revision-sha> <kind>/<name>
-```
-
-Render + validate + push the gateway config (llama-swap hot-reloads, so the endpoint never drops):
-
-```bash
-scripts/deploy.sh
+scripts/status.sh                                         # summary (also printed on SSH login)
+scripts/fetch-model.sh <hf-repo> <revision-sha> <kind>/<name>   # weights at a pinned revision
+scripts/deploy.sh                                         # validate config, build images, restart core (engines keep running)
+scripts/karspark-keys list                                # API keys
+(cd core && uv run pytest)                                # core's tests, no GPU
+scripts/validate-comfy-graphs.sh                          # every ComfyUI graph through ComfyUI's validator, no GPU
 ```
 
 ## Access

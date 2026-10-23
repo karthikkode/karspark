@@ -5,10 +5,10 @@ diffusion model. Weights are read-only from `~/models` via `extra_model_paths.ya
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
 
-Status: **ready, not deployed** (Flash-Next owns the GPU). Not yet timed on the GPU. From r4 the adapter
-speaks only the internal job API (`/v1/run`, `/v1/jobs/{id}`, pause/cancel) for karspark-core; the public
-API below moves to core (`/v1/jobs`, MCP) in plan phase 2, so this recipe is not deployable behind
-llama-swap any more.
+Status: **ready, not deployed** (Flash-Next owns the GPU). Not yet timed on the GPU. Recipe `comfyui:comfy`
+(port 10020, mode `creative`, next to the planner LLM). From r4 the adapter speaks only the internal job
+API (`/v1/run`, `/v1/jobs/{id}`, pause/cancel) for karspark-core; callers use core's `/v1/jobs` and MCP
+tools with the parameters below.
 
 ## Models
 
@@ -66,7 +66,7 @@ llama-swap any more.
 {"model": "seedvr2-3b", "video": "<base64 mp4>", "scale": 2}            // seedvr2-7b for hero shots
 ```
 
-**Full ComfyUI app + native API** (custom graphs, templates): `http://<spark>:8080/comfyui/`.
+
 
 ## Settings and why
 
@@ -93,5 +93,6 @@ llama-swap any more.
   target size, then FLUX.2 Turbo at denoise 0.35 (about 4 of 12 steps). Video: LTX-2.5 already renders
   at half size and upscales 2× itself, so SeedVR2 is for going past 720p.
 
-Runs alone, not in a routing set. ComfyUI loads the weights on demand: about 34 GB for FLUX.2, 30 GB for
+Runs in mode `creative` with the planner (107 GiB together). ComfyUI loads weights on demand, and core frees the
+previous family before a different one runs: about 34 GB for FLUX.2, 30 GB for
 Qwen-Image-Layered, and 40 GB for LTX-2.5.

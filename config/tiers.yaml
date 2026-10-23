@@ -1,0 +1,56 @@
+# API key tiers (docs/integrating.md). Priority: 0 = P0 (highest) .. 3 = P3 (batch).
+# Effective priority of a request = max(requested number, ceiling), i.e. never above the tier's ceiling.
+# weight = fair share between keys inside one priority class. rpm/tpm: null = unlimited.
+tiers:
+  owner:
+    ceiling: 0
+    default: 1
+    coding: true
+    mode_change: immediate
+    preempt: true
+    weight: 8
+    rpm: null
+    tpm: null
+    max_running: 8
+    max_queued: 1000
+    max_upload_mb: 1024
+    retention_days: 30
+  critical:
+    ceiling: 1
+    default: 1
+    coding: false
+    mode_change: request
+    preempt: true
+    weight: 4
+    rpm: 600
+    tpm: 2000000
+    max_running: 4
+    max_queued: 200
+    max_upload_mb: 512
+    retention_days: 14
+  standard:
+    ceiling: 2
+    default: 2
+    coding: false
+    mode_change: request
+    preempt: false
+    weight: 2
+    rpm: 120
+    tpm: 500000
+    max_running: 2
+    max_queued: 50
+    max_upload_mb: 256
+    retention_days: 7
+  batch:
+    ceiling: 3
+    default: 3
+    coding: false
+    mode_change: request
+    preempt: false
+    weight: 1
+    rpm: 60
+    tpm: 200000
+    max_running: 1
+    max_queued: 1000
+    max_upload_mb: 256
+    retention_days: 7

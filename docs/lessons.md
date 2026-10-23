@@ -53,3 +53,8 @@ history at commit `f64547d`.
 - Unit names drifted from what they ran (`vllm-122b` served the 27B).
 - Loose files in `~`, `*.bak` copies instead of version control, and experiments that services depended on.
 - The fix is [standard.md](standard.md): one repo, one layout, one registry.
+- Anything holding the Docker socket can kill a live model. On 2026-10-23 a "harmless" karspark-core smoke
+  run (an empty mode, another port) stopped Flash-Next: the image predated a fix, and core's adopt step
+  stopped a same-named container that llama-swap had started. Core now adopts only containers carrying its
+  `karspark.recipe` label. Before running a container manager on the box, build it from the current tree
+  and prove the dangerous path read-only first.

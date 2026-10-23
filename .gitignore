@@ -6,3 +6,8 @@ env
 # scratch
 *.log
 __pycache__/
+
+# build inputs fetched on the laptop
+.dl/
+.venv/
+.pytest_cache/

@@ -1,4 +1,4 @@
-# Adds the karspark gateway key to every urllib request the vendored harness makes, so the upstream
+# Adds the karspark API key to every urllib request the vendored harness makes, so the upstream
 # files stay byte-identical to their pinned commit.
 import os
 import urllib.request

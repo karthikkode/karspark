@@ -1,6 +1,9 @@
 # opencode (v2) → karspark
 
 Tested 2026-10-22 with opencode v2.0.32: `opencode run --model karspark/qwen3.8-flash` works through the gateway.
+karspark-core keeps the same URL and accepts the same key (it becomes the owner key `karthik-coding`), so
+nothing changes here at the cutover. Use model `text` for whichever text model is loaded, or
+`qwen3.8-flash` (coding mode, owner keys) to make sure you get Flash-Next.
 
 Add to `~/.config/opencode/opencode.jsonc` under `"providers"` (the key comes from the env var, never the file):
 

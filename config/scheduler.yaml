@@ -1,0 +1,15 @@
+# Scheduler policy (docs/scheduler.md).
+age_after_s: {3: 1800, 2: 600, 1: 180}   # waited this long in class N -> promoted to N-1 (never to P0)
+preempt_class: 3                          # only P3 jobs can be preempted (paused, progress kept)
+max_preemptions: 3                        # per job; after that it is never preempted again
+affinity_skip_budget: 3                   # a job may be passed over this often for one using the loaded model
+keepalive_s: 15                           # ping idle text streams (tool-call parsers go quiet)
+job_timeout_s:                            # running time limit per job (paused time not counted)
+  text: 3600
+  image: 900
+  layers: 900
+  video: 3600
+  upscale_image: 900
+  upscale_video: 3600
+bodies_days: 30                           # request/response bodies in logs.db
+meta_days: 365                            # request metadata and events

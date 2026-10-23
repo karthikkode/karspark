@@ -1,5 +1,5 @@
 #!/bin/sh
-# ks-bench <model> <label> [levels] [prefill-sizes]  (inside the container; base URL = the gateway)
+# ks-bench <model> <label> [levels] [prefill-sizes]  (inside the container; base URL = karspark :8080)
 set -u
 MODEL="$1"; LABEL="$2"; LEVELS="${3:-1 2 4 6 8}"; PREFILL="${4:-16000 64000 128000}"
 BASE="${KARSPARK_BASE:-http://127.0.0.1:8080}"

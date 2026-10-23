@@ -1,24 +1,19 @@
-# One ComfyUI container serves every image/video model (FLUX.2, LTX-2.5) so they share one process.
-# The id must be `comfyui_auto`: llama-swap's /comfyui/ endpoint (full ComfyUI UI + native API, with
-# websocket-safe swapping) only works for a model with that exact name. The aliases are what the
-# OpenAI-style endpoints use: POST /v1/images/generations {"model": "flux2-dev"}.
-models:
-  "comfyui_auto":
-    name: "ComfyUI (FLUX.2 dev NVFP4 + Turbo, LTX-2.5)"
-    description: "images: model flux2-dev via /v1/images/generations; video: /upstream/comfyui_auto/v1/videos/generations; UI: /comfyui/"
-    aliases: ["flux2-dev", "ltx-2.5", "qwen-image-layered"]
-    checkEndpoint: /health
-    compat:
-      ignoreWebsockets: true
-    ttl: 1800
-    env:
-      - "KS_NEED_GIB=60"
-    cmd: |
-      ${ks-docker} ks-comfyui
-      --gpus all --ipc host --shm-size 16g --memory 100g --memory-swap 100g
-      -p 127.0.0.1:${PORT}:8000
-      -v ${models}:/models:ro
-      -e HF_HUB_OFFLINE=1
-      -e 'COMFY_ARGS=--disable-pinned-memory --reserve-vram 4'
-      karspark/comfyui:0.42.4-r4
-    cmdStop: docker stop -t 30 ks-comfyui
+# One ComfyUI container serves every image/video/upscale model (they share one process and its model cache).
+# The adapter in front of it is the internal job API for karspark-core (engines/comfyui/adapter/server.py).
+# Jobs live in ${data}/jobs, shared with core: inputs, outputs and pause checkpoints.
+kind: media
+capabilities: [image, layers, video, upscale_image, upscale_video]
+models: [flux2-dev, qwen-image-layered, ltx-2.5, seedvr2-7b, seedvr2-7b-sharp, seedvr2-3b, flux2-refine, esrgan-anime]
+port: 10020
+memory_gib: 75           # LTX-2.5 + Gemma TE ~40 GB, FLUX.2 ~34 GB; ComfyUI holds one family at a time (core calls /v1/free between families)
+slots: 1
+load_timeout_s: 600
+stop_timeout_s: 30
+run: |
+  --gpus all --ipc host --shm-size 16g --memory 82g --memory-swap 82g
+  -p 127.0.0.1:${PORT}:8000
+  -v ${models}:/models:ro
+  -v ${data}/jobs:/jobs
+  -e HF_HUB_OFFLINE=1
+  -e 'COMFY_ARGS=--disable-pinned-memory --reserve-vram 4'
+  karspark/comfyui:0.42.4-r4
