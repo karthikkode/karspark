@@ -74,7 +74,8 @@ checked against the real graph builder at submit time, so mistakes are a `400` n
 ```
 
 `paused_by` is `user` (you or an owner paused it) or `system` (preempted, or the mode switched; it resumes
-by itself). Text jobs: `outputs[0].text` holds the answer, and `progress.partial_chars` grows while it runs.
+by itself). Text jobs: `outputs[0].text` holds the answer; `progress.partial_chars` and `progress.reasoning_chars` grow
+while it runs. A text job that used all `max_tokens` reasoning and wrote no answer fails with that message.
 
 | route | |
 |---|---|

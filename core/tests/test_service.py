@@ -340,3 +340,14 @@ async def test_cold_boot_starts_in_the_default_mode(env, tmp_path):
     finally:
         await k2.stop()
         env.k = k2
+
+
+async def test_text_job_that_only_reasons_fails_clearly(env):
+    # seen live: Qwen3.8-27B thinks by default and spent all 2000 max_tokens reasoning; the job "succeeded" empty
+    await go_creative(env)
+    env.planner.think_only = True
+    std = await env.key("proj-a", "standard")
+    job = (await env.c.post("/v1/jobs", json={"type": "text", "prompt": "a story", "max_tokens": 50}, headers=std)).json()
+    await env.until(lambda: _is_state(env, job["id"], "failed"))
+    j = (await env.c.get(f"/v1/jobs/{job['id']}", headers=std)).json()
+    assert "reasoning" in j["error"]["message"] and j["progress"]["reasoning_chars"] > 0

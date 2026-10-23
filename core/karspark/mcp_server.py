@@ -42,7 +42,9 @@ Working efficiently
   Fix the seed when only the prompt changes.
 - Pass idempotency_key on generation tools so a retried call never makes a duplicate job. After a dropped
   call without one, check list_jobs before resubmitting.
-- Use the lowest priority that is good enough; your key's tier caps it anyway."""
+- Use the lowest priority that is good enough; your key's tier caps it anyway.
+- The creative planner reasons before answering and that counts toward max_tokens: allow 4000+ for prose, or
+  reasoning_effort="none" for the text alone."""
 
 
 def build_mcp(k) -> MCPServer:

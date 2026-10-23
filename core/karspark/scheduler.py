@@ -276,7 +276,8 @@ class Scheduler:
                 await self.jobs.set(job["id"], "queued", actor="karspark", reason=result.get("error", "engine lost"),
                                     run_s=run_s, paused_by="system", enqueued=self.clock())
         else:
-            await self.jobs.set(job["id"], "failed", actor="karspark", run_s=run_s, error=result.get("error"))
+            extra = {"progress": result["progress"]} if result.get("progress") else {}
+            await self.jobs.set(job["id"], "failed", actor="karspark", run_s=run_s, error=result.get("error"), **extra)
         await self.workers.notify(await self.jobs.get(job["id"]))
         self.poke()
 
@@ -518,7 +519,8 @@ class Scheduler:
                 self.state.last_coding = now
             self.state.last_activity = now
             cost = round(now - t0, 1)
-            self.switch_costs[target] = cost
+            if src != target:  # a startup re-ensure of the same mode isn't what a real switch costs
+                self.switch_costs[target] = cost
             self.log.scheduler_event("mode_switch_done", src=src, dst=target, reason=reason, seconds=cost,
                                      engines=self.engines.view())
         finally:

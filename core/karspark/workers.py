@@ -187,6 +187,10 @@ class Workers:
                 return {"state": "cancelled"}
             await self.jobs.db.update("jobs", "id", jid, {"progress": prog})
             return {"state": "paused", "progress": prog}
+        if not text.strip() and finish == "length":
+            return {"state": "failed", "progress": prog, "error": {
+                "message": f"the model spent all {body['max_tokens']} max_tokens reasoning and wrote no answer; "
+                           "raise max_tokens or set reasoning_effort='none'", "reasoning_chars": len(reasoning)}}
         out_dir = self.jobs.dir(jid) / "out"
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "output.txt").write_text(text)

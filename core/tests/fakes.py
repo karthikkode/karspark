@@ -56,6 +56,7 @@ class FakeText:
     def __init__(self, name, delay=0.0, words=5):
         self.name, self.delay, self.words = name, delay, words
         self.requests = []
+        self.think_only = False   # a thinking model that spends the whole max_tokens on reasoning
 
     def handle(self, req: httpx.Request):
         if req.url.path == "/health":
@@ -69,7 +70,10 @@ class FakeText:
             return httpx.Response(200, json={"id": "x", "model": body["model"], "choices": [
                 {"index": 0, "message": {"role": "assistant", "content": f"{self.name}:" + "".join(words)},
                  "finish_reason": "stop"}], "usage": {"prompt_tokens": 3, "completion_tokens": len(words), "total_tokens": 3 + len(words)}})
-        chunks = [("data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": w}}]}) + "\n\n").encode() for w in words]
+        key = "reasoning_content" if self.think_only else "content"
+        chunks = [("data: " + json.dumps({"choices": [{"index": 0, "delta": {key: w}}]}) + "\n\n").encode() for w in words]
+        if self.think_only:
+            chunks.append(("data: " + json.dumps({"choices": [{"index": 0, "delta": {}, "finish_reason": "length"}]}) + "\n\n").encode())
         chunks.append(("data: " + json.dumps({"choices": [], "usage": {"prompt_tokens": 3, "completion_tokens": len(words)}}) + "\n\n").encode())
         chunks.append(b"data: [DONE]\n\n")
         return httpx.Response(200, stream=Stream(chunks, self.delay), headers={"content-type": "text/event-stream"})

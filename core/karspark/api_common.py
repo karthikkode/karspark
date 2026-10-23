@@ -58,7 +58,7 @@ def job_view(j: dict, eta=None) -> dict:
     if out["progress"] and "partial" in out["progress"]:  # text jobs: don't ship the whole partial on every poll
         p = dict(out["progress"])
         p["partial_chars"] = len(p.pop("partial") or "")
-        p.pop("reasoning", None)
+        p["reasoning_chars"] = len(p.pop("reasoning", None) or "")   # thinking models reason before answering
         out["progress"] = p
     if eta is not None:
         out["eta_s"] = eta
