@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import os
 import time
 from pathlib import Path
@@ -39,6 +40,9 @@ from .resources import Resources, maintenance
 from .scheduler import Scheduler
 from .service import Service
 from .workers import Workers
+
+# core polls engines every second; logging each poll buried the journal (requests are in logs.db)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 LEGACY_KEY_NAME = "karthik-coding"
 

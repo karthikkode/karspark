@@ -322,3 +322,21 @@ async def test_cancel_the_engine_never_confirms_is_forced(env):
 
 async def _is_state(env, job_id, state):
     return (await env.k.jobs.get(job_id))["state"] == state
+
+
+async def test_cold_boot_starts_in_the_default_mode(env, tmp_path):
+    await go_creative(env)
+    await env.k.stop()
+    env.runner.up.clear()                                   # the box rebooted: no engine survived
+    k2 = Karspark(REPO, tmp_path, PEPPER, runner=env.runner, http=httpx.AsyncClient(transport=env.k.http._transport),
+                  clock=env.clock, background=False, tick_s=0.01, mem_free=lambda: 1000, poll_s=0.01)
+    await k2.start()
+    try:
+        for _ in range(500):
+            if not k2.sched.switching:
+                break
+            await asyncio.sleep(0.01)
+        assert k2.sched.state.current == "coding" and k2.engines.ready("qwen3.8-flash:vllm-salient")
+    finally:
+        await k2.stop()
+        env.k = k2

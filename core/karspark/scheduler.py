@@ -93,6 +93,11 @@ class Scheduler:
         if match:
             self.state.current = match.name
         else:
+            alive = [rid for rid, e in self.engines.engines.items() if await self.engines.runner.running(e.recipe)]
+            if not alive and self.state.current != self.cfg.sched.default_mode:
+                # a cold boot (no engine survived): start in the default mode, not wherever we were
+                self.log.scheduler_event("cold_start", saved=self.state.current, mode=self.cfg.sched.default_mode)
+                self.state.current, self.state.pending, self.state.pinned_until = self.cfg.sched.default_mode, None, 0
             self._begin_switch(self.state.current, "startup")
         self.task = asyncio.create_task(self._loop())
         self.started = True

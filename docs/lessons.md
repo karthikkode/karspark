@@ -58,3 +58,14 @@ history at commit `f64547d`.
   stopped a same-named container that llama-swap had started. Core now adopts only containers carrying its
   `karspark.recipe` label. Before running a container manager on the box, build it from the current tree
   and prove the dangerous path read-only first.
+- **2026-10-23, the first live creative run.** After about 30 min of back-to-back GPU jobs (96% use,
+  83–89 °C, 70–85 W), the box **powered off hard** at 16:04:46. No log, panic, OOM or Xid; memory was
+  84 of 121 GiB. It matches public reports of GB10 units powering off under sustained load, on this kernel
+  and driver. Evidence and the support-case draft are in `~/dgx-spark-crash/`, made outside this repo.
+  Until it is resolved, don't run long, unattended, back-to-back heavy media batches. If it happens again,
+  note the time and leave the `gpu-telemetry` logger running.
+- **Desktop software updates break GPU containers until the CDI spec is regenerated.** An update moved
+  `libnvidia-egl-wayland` from 1.1.21 to 1.1.23 while the box was up. `/var/run/cdi/nvidia.yaml` still
+  listed the old file, so every new `--gpus` container failed with "failed to fulfil mount request".
+  Engines that were already running kept working. The fix is
+  `sudo systemctl start nvidia-cdi-refresh.service` (or a reboot).

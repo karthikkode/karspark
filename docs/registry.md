@@ -5,7 +5,7 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 
 **State on 2026-10-23:**
 - **Live on the box:** the pre-core llama-swap gateway, serving Flash-Next.
-- **The repo:** karspark-core. It is built (`karspark/core:0.1.0-r6`) and tested (38 tests, fake engines),
+- **The repo:** karspark-core. It is built (`karspark/core:0.1.0-r7`) and tested (38 tests, fake engines),
   but not yet deployed.
 - **The cutover:** `scripts/deploy.sh --cutover`. It stops the gateway, and Flash-Next reloads under core
   (~6 min). It waits for the owner's go.
@@ -14,7 +14,7 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 
 | what | image | where | status |
 |---|---|---|---|
-| karspark-core | `karspark/core:0.1.0-r6` | `core/`, unit `core/karspark-core.service`, `--network host`, `:8080` | built, tested, **not deployed** |
+| karspark-core | `karspark/core:0.1.0-r7` | `core/`, unit `core/karspark-core.service`, `--network host`, `:8080` | built, tested, **not deployed** |
 | llama-swap gateway (pre-core) | `karspark/gateway:265` | removed from the repo; still running on the box until cutover | retiring |
 
 ## Modes (`config/modes.yaml`)
@@ -57,7 +57,7 @@ Everything runs in Docker. Nothing is installed on the host except Docker itself
 
 | image | what | built from |
 |---|---|---|
-| `karspark/core:0.1.0-r6` | karspark-core (FastAPI, scheduler, MCP) + docker CLI | `core/Dockerfile` |
+| `karspark/core:0.1.0-r7` | karspark-core (FastAPI, scheduler, MCP) + docker CLI | `core/Dockerfile` |
 | `karspark/comfyui:0.42.4-r6` | ComfyUI + torch 2.13 cu130 + karspark job adapter + pausable sampler nodes | `engines/comfyui/Dockerfile` |
 | `karspark/vllm-salient:2026-10-14-77154ca6` | vLLM nightly + 14 Flash-Next patches | `engines/vllm-salient/upstream/Dockerfile` |
 | `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM | Docker Hub, pinned digest |
