@@ -83,6 +83,9 @@ async def test_tools_status_text_and_image(served):
         assert kinds[0] == "image" and kinds[-1] == "text", img.content
         job = json.loads(img.content[-1].text)
         assert job["state"] == "succeeded" and job["params"]["steps"] if "steps" in job["params"] else True
+        a = await s.call_tool("generate_image", {"prompt": "a dog", "idempotency_key": "dog-1", "wait_s": 0})
+        b = await s.call_tool("generate_image", {"prompt": "a dog", "idempotency_key": "dog-1", "wait_s": 0})
+        assert json.loads(a.content[-1].text)["id"] == json.loads(b.content[-1].text)["id"]
         ev = json.loads((await s.call_tool("job_events", {"job_id": job["id"]})).content[0].text)
         assert [e["state"] for e in ev["events"]][-1] == "succeeded"
         res = await s.read_resource("karspark://status")

@@ -1,7 +1,8 @@
 # Integrating a project with karspark
 
 karspark is a black box. Your project sends work and gets results. It never thinks about GPUs, which
-model is loaded, or queues. This page is the contract.
+model is loaded, or queues. This page is the contract. Agents: [agents.md](agents.md) shows how to use it
+efficiently.
 
 ## 1. Get a key
 

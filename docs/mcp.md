@@ -2,7 +2,8 @@
 
 Streamable HTTP at **`http://100.101.249.74:8080/mcp`**, with the same keys as the HTTP API. Your key sets
 your tier, so the same priorities, limits and ownership apply. Every tool call appears in the request log
-with its tool name.
+with its tool name. The server sends usage guidance on connect; the full playbook is
+[agents.md](agents.md).
 
 ## Connect
 
@@ -40,6 +41,7 @@ with `wait_job`.
 | `upscale_image(image, model="seedvr2-7b", scale=2, prompt?, loras?, priority?, wait_s=50)` | also `seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime` |
 | `generate_video(prompt, first_frame?, last_frame?, duration=5, size="1280x720", fps=24, audio="none", seed?, priority?, wait_s=50)` | LTX-2.5; the frames choose t2v, i2v or first-to-last; `audio="sfx"` for sound effects only |
 | `upscale_video(video, model="seedvr2-3b", scale=2, priority?, wait_s=50)` | SeedVR2 |
+| every generation tool | also takes `idempotency_key`: a repeated call returns the same job |
 | `upload_file(name, data_base64)` | returns a `file_id` to pass as any image or video input |
 
 **Job control** (your own jobs; owner keys: any job)

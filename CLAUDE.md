@@ -11,7 +11,9 @@ add a standalone systemd unit, a public port, or a key outside core's key store.
 ## Rules
 - Changes flow repo → Spark: edit recipes/config/core, then `scripts/deploy.sh` (validates, builds,
   copies config, restarts core; engines keep running). Never hand-edit `~/core/config` on the box.
-- Update `docs/registry.md` and the recipe README in the same commit as the change.
+- Update `docs/registry.md` and the recipe README in the same commit as the change. Any behaviour change
+  also updates the docs that describe it, in the same commit (the table at the end of `docs/README.md`).
+  Agents in other projects rely on `docs/agents.md` and the MCP `INSTRUCTIONS`, so keep both accurate.
 - Recipe ids are `<model>:<recipe>`. Public model names are a recipe's `models:` list; `text` is reserved.
 - Engines bind `127.0.0.1:${PORT}` only (fixed port per recipe). Images are pinned by digest or built from a
   Dockerfile here as `karspark/...` (bump `-rN` on change). Never `docker commit`.
@@ -24,6 +26,10 @@ add a standalone systemd unit, a public port, or a key outside core's key store.
 - Core's tests (`cd core && uv run pytest`) and `scripts/validate-comfy-graphs.sh` must pass before a deploy.
 - Never run anything holding the Docker socket against the box (core, test configs) without first proving
   read-only that it won't touch live engines. A smoke run once killed Flash-Next (docs/lessons.md).
+
+## Docs
+`docs/README.md` maps every doc to its reader. Using karspark from another project: `docs/agents.md`.
+Changing it: this file, `docs/standard.md`, `docs/lessons.md`, `docs/registry.md`.
 
 ## Access
 - `ssh spark` (Tailscale) / `ssh spark-lan` (home LAN, `192.168.29.130`, DHCP). Use single-line `ssh spark '…'`.

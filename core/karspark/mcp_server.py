@@ -22,15 +22,27 @@ from .jobs import FINAL, JobError
 from .keys import bearer
 from .service import complete
 
-INSTRUCTIONS = """karspark runs every model on the owner's DGX Spark behind one API.
+INSTRUCTIONS = """karspark runs every model on the owner's DGX Spark behind one API. Full playbook: docs/agents.md.
+Tools
 - Text: generate_text (model "text" = whatever is loaded; it never waits for a model switch).
 - Images: generate_image (FLUX.2 + Turbo LoRA, 12 steps), split_layers (Qwen-Image-Layered), upscale_image.
-- Video: generate_video (LTX-2.5; give first_frame for image-to-video, first_frame + last_frame for a
-  first-to-last transition; silent unless audio="sfx"), upscale_video.
-- Media tools are jobs: they wait up to wait_s, then return a job_id. Use wait_job / get_job, and
-  pause_job / resume_job / cancel_job / set_priority to control your own jobs. Paused jobs keep progress.
-- Pass images and videos as a file_id (upload_file first), a karspark file URL, or base64.
-- status / list_jobs / queue / job_events / list_models / usage show what is happening right now."""
+- Video: generate_video (LTX-2.5; first_frame = image-to-video, first_frame + last_frame = first-to-last
+  transition; silent unless audio="sfx", which adds sound effects only, never music or voices), upscale_video.
+- Media tools are jobs: they wait up to wait_s (max 55), then return the job with eta_s. Continue with wait_job.
+  pause_job / resume_job / cancel_job / set_priority control your own jobs; a paused job keeps its progress.
+- Inputs: a file_id (upload_file once, reuse it), a karspark file URL, or base64. Outputs are karspark URLs.
+- status / list_jobs / queue / job_events / list_models / usage show what is happening right now.
+Working efficiently
+- The GPU runs one media job at a time and one mode at a time (coding = Flash-Next only; creative = planner
+  LLM + media). Media submitted in coding mode waits until the coding hold ends; status() shows it. Tell the
+  user the eta instead of retrying.
+- Submit every independent job first (wait_s=0), then wait_job each one. Queued work lets karspark group
+  jobs by model and skip weight swaps; group your plan the same way (all images, then layers, then video).
+- Draft cheap, finish expensive: small sizes and short clips while iterating, upscale only the keepers.
+  Fix the seed when only the prompt changes.
+- Pass idempotency_key on generation tools so a retried call never makes a duplicate job. After a dropped
+  call without one, check list_jobs before resubmitting.
+- Use the lowest priority that is good enough; your key's tier caps it anyway."""
 
 
 def build_mcp(k) -> MCPServer:
@@ -63,41 +75,47 @@ def build_mcp(k) -> MCPServer:
                           "(file_id/base64) for characters, outfits or style; loras for character LoRAs. size WxH.")
     async def generate_image(ctx: Context, prompt: str, size: str | None = None, reference_images: list[str] | None = None,
                              loras: list[dict] | None = None, steps: int | None = None, seed: int | None = None,
-                             turbo: bool = True, priority: int | None = None, wait_s: float = 50):
+                             turbo: bool = True, priority: int | None = None,
+                             idempotency_key: str | None = None, wait_s: float = 50):
         return await media(ctx, {"type": "image", "prompt": prompt, "size": size, "reference_images": reference_images,
-                                 "loras": loras, "steps": steps, "seed": seed, "turbo": turbo, "priority": priority}, wait_s)
+                                 "loras": loras, "steps": steps, "seed": seed, "turbo": turbo, "priority": priority,
+                                 "idempotency_key": idempotency_key}, wait_s)
 
     @mcp.tool(description="Split an image into RGBA layers (background first) with Qwen-Image-Layered, for parallax. "
                           "prompt optionally describes the whole scene including hidden parts.")
     async def split_layers(ctx: Context, image: str, layers: int = 4, prompt: str | None = None,
                            resolution: int | None = None, seed: int | None = None, priority: int | None = None,
-                           wait_s: float = 50):
+                           idempotency_key: str | None = None, wait_s: float = 50):
         return await media(ctx, {"type": "layers", "image": image, "layers": layers, "prompt": prompt,
-                                 "resolution": resolution, "seed": seed, "priority": priority}, wait_s)
+                                 "resolution": resolution, "seed": seed, "priority": priority,
+                                 "idempotency_key": idempotency_key}, wait_s)
 
     @mcp.tool(description="Upscale an image. model: seedvr2-7b (default, best), seedvr2-7b-sharp, seedvr2-3b, "
                           "flux2-refine (anime-safe; optional prompt/loras), esrgan-anime (instant). scale 1-4.")
     async def upscale_image(ctx: Context, image: str, model: str = "seedvr2-7b", scale: float = 2,
                             prompt: str | None = None, loras: list[dict] | None = None, priority: int | None = None,
-                            wait_s: float = 50):
+                            idempotency_key: str | None = None, wait_s: float = 50):
         return await media(ctx, {"type": "upscale_image", "image": image, "model": model, "scale": scale,
-                                 "prompt": prompt, "loras": loras, "priority": priority}, wait_s)
+                                 "prompt": prompt, "loras": loras, "priority": priority,
+                                 "idempotency_key": idempotency_key}, wait_s)
 
     @mcp.tool(description="Generate a video with LTX-2.5: text-to-video, image-to-video (first_frame), or "
                           "first-to-last (first_frame + last_frame). size multiple of 64, duration 1-20 s. "
                           "Silent by default; audio='sfx' adds sound effects only (never music or voices).")
     async def generate_video(ctx: Context, prompt: str, first_frame: str | None = None, last_frame: str | None = None,
                              duration: float = 5, size: str = "1280x720", fps: int = 24, audio: str = "none",
-                             seed: int | None = None, priority: int | None = None, wait_s: float = 50):
+                             seed: int | None = None, priority: int | None = None,
+                             idempotency_key: str | None = None, wait_s: float = 50):
         return await media(ctx, {"type": "video", "prompt": prompt, "first_frame": first_frame, "last_frame": last_frame,
                                  "duration": duration, "size": size, "fps": fps, "audio": audio, "seed": seed,
-                                 "priority": priority}, wait_s)
+                                 "priority": priority, "idempotency_key": idempotency_key}, wait_s)
 
     @mcp.tool(description="Upscale a video with SeedVR2 (default seedvr2-3b; seedvr2-7b for hero shots), keeping fps.")
     async def upscale_video(ctx: Context, video: str, model: str = "seedvr2-3b", scale: float = 2,
-                            priority: int | None = None, wait_s: float = 50):
+                            priority: int | None = None,
+                            idempotency_key: str | None = None, wait_s: float = 50):
         return await media(ctx, {"type": "upscale_video", "video": video, "model": model, "scale": scale,
-                                 "priority": priority}, wait_s)
+                                 "priority": priority, "idempotency_key": idempotency_key}, wait_s)
 
     @mcp.tool(description="Upload a file (base64) for use as an input; returns its file_id.")
     async def upload_file(ctx: Context, name: str, data_base64: str) -> dict:

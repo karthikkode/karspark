@@ -5,7 +5,7 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 
 **State on 2026-10-23:**
 - **Live on the box:** the pre-core llama-swap gateway, serving Flash-Next.
-- **The repo:** karspark-core. It is built (`karspark/core:0.1.0-r2`) and tested (37 tests, fake engines),
+- **The repo:** karspark-core. It is built (`karspark/core:0.1.0-r2`) and tested (38 tests, fake engines),
   but not yet deployed.
 - **The cutover:** `scripts/deploy.sh --cutover`. It stops the gateway, and Flash-Next reloads under core
   (~6 min). It waits for the owner's go.
