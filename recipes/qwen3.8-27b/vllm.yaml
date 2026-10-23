@@ -5,14 +5,14 @@ capabilities: [text]
 models: [qwen3.8-27b]
 served_name: qwen3.8-27b
 port: 10030
-memory_gib: 36           # 0.30 x 121 GiB (0.25 left 3.4 GiB KV: under one 128K request, failed at load)
+memory_gib: 38           # 0.31 x 121 GiB (0.25 left 3.4 GiB KV, under one 128K request; 0.30 left 9.04 GiB, under 256K)
 # Full 256K context (the model's own limit): only 16 of 64 layers are full attention, so FP8 KV is ~32 KiB a
-# token and one 256K request needs ~8 GiB. Core sets no max_tokens, so this is the only cap.
+# token and one 256K request needs 9.29 GiB (measured). Core sets no max_tokens, so this is the only cap.
 slots: 4
 load_timeout_s: 1200
 stop_timeout_s: 30
 run: |
-  --gpus all --ipc host --shm-size 16g --memory 44g --memory-swap 44g
+  --gpus all --ipc host --shm-size 16g --memory 46g --memory-swap 46g
   -p 127.0.0.1:${PORT}:8000
   -v ${models}/llm/qwen3.8-27b-nvfp4:/model:ro
   -v ${engines}/vllm-planner/cache:/root/.cache
@@ -24,7 +24,7 @@ run: |
   serve /model --host 0.0.0.0 --port 8000
   --served-model-name qwen3.8-27b
   --max-model-len 262144 --max-num-seqs 4
-  --gpu-memory-utilization 0.30
+  --gpu-memory-utilization 0.31
   --kv-cache-dtype fp8 --enable-prefix-caching
   --reasoning-parser qwen3
   --enable-auto-tool-choice --tool-call-parser qwen3_xml

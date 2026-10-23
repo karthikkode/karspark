@@ -238,7 +238,7 @@ def _why(log: str) -> str:
     """The root cause, not just the last traceback: every distinct error line, then the tail."""
     causes = []
     for line in log.splitlines():
-        if ("Error" in line or "Exception" in line) and "Traceback" not in line:
+        if ("Error" in line or "Exception" in line) and "Traceback" not in line and not line.strip().startswith("raise "):
             text = line.split("] ", 1)[-1].strip()
             if text and text not in causes:
                 causes.append(text)

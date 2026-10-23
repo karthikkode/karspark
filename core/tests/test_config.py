@@ -42,7 +42,7 @@ def test_rejects_mode_over_memory(tmp_path):
 
 def test_why_keeps_the_root_cause_ahead_of_the_tail():
     from karspark.engines import _why
-    log = "\n".join(["(EngineCore pid=1) ERROR [core.py:9] ValueError: draft model needs 9 GiB"] +
+    log = "\n".join(["    raise ValueError(", "(EngineCore pid=1) ERROR [core.py:9] ValueError: draft model needs 9 GiB"] +
                     [f"noise {i}" for i in range(300)] + ["RuntimeError: Engine core initialization failed"])
     out = _why(log)
     assert out.startswith("causes: ValueError: draft model needs 9 GiB | RuntimeError: Engine core")

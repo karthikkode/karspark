@@ -11,7 +11,7 @@
 
 | id | engine | memory | notes |
 |---|---|---|---|
-| `qwen3.8-27b:vllm` (model `qwen3.8-27b`, mode `creative`, port 10030) | [vllm-salient](../../engines/vllm-salient/README.md) image (confirmed: loads as Qwen3-VL, so it has vision) | 0.30 util ≈ 36 GiB, 44g cap (0.25 left too little KV) | **deployed**, 249 s cold: MTP 3 tokens, FP8 KV, prefix caching, `qwen3_xml` tools, `qwen3` reasoning, 256K ctx (the model's full context; ~8 GiB of FP8 KV per full-length request), 4 sequences |
+| `qwen3.8-27b:vllm` (model `qwen3.8-27b`, mode `creative`, port 10030) | [vllm-salient](../../engines/vllm-salient/README.md) image (confirmed: loads as Qwen3-VL, so it has vision) | 0.31 util ≈ 38 GiB, 46g cap (0.30 left 9.04 GiB KV, under the 9.29 GiB one 256K request needs) | **deployed**, 249 s cold: MTP 3 tokens, FP8 KV, prefix caching, `qwen3_xml` tools, `qwen3` reasoning, 256K ctx (the model's full context; 9.29 GiB of FP8 KV per full-length request), 4 sequences |
 
 ## Bake-off (2026-10-23, `bench/2026-10-23-bakeoff{,-b}/`)
 
