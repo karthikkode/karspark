@@ -58,7 +58,7 @@ jobs stand.
 | `coding` | a media job | queued. It runs after the hold, when the box switches to `creative` by itself; `eta_s` includes the switch |
 | `coding` | `request_mode("creative")` | owner: switches now. Other keys: `202 pending`, applied by itself after the hold |
 | `creative` | text, `model="text"` | the planner LLM (4 concurrent streams) |
-| `creative` | text, `model="qwen3.8-flash"` | owner keys only: the box switches to coding (~6 min load) and running media jobs pause. Avoid unless the owner asked |
+| `creative` | text, `model="qwen3.8-flash"` | owner keys only: the box switches to coding (~4.5 min load) and running media jobs pause. Avoid unless the owner asked |
 | `creative` | a media job | queued for ComfyUI, one at a time, in priority / fair-share order |
 
 ## What things cost
