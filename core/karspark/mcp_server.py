@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import io
 import json
 import time
 
@@ -248,18 +249,39 @@ def build_mcp(k) -> MCPServer:
     return mcp
 
 
+PREVIEW_PX = 768
+INLINE_BUDGET = 600 * 1024   # one MCP reply is one SSE event; clients cap it at 1 MB and base64 adds a third
+
+
+def _preview(raw: bytes, mime: str):
+    """A small inline copy of an output image (full size stays at its URL): JPEG, or PNG when it has alpha."""
+    try:
+        from PIL import Image as PImage
+        im = PImage.open(io.BytesIO(raw))
+        im.thumbnail((PREVIEW_PX, PREVIEW_PX))
+        buf = io.BytesIO()
+        if im.mode in ("RGBA", "LA", "P"):
+            im.save(buf, "PNG", optimize=True)
+            return buf.getvalue(), "png"
+        im.convert("RGB").save(buf, "JPEG", quality=85)
+        return buf.getvalue(), "jpeg"
+    except Exception:             # not decodable: inline as is when small enough
+        return raw, mime.split("/")[-1]
+
+
 async def _result(k, p, view):
-    """A finished image job -> image content blocks + the job; otherwise the job (with eta)."""
+    """A finished image job -> small preview images + the job (full size at outputs[].url); otherwise the job."""
     if view["state"] == "succeeded" and view["kind"] in ("image", "layers", "upscale_image"):
         blocks = []
         total = 0
         for o in view["outputs"] or []:
             f = await k.files.get(p, o["file_id"])
-            raw = k.files.path(f).read_bytes()
-            total += len(raw)
-            if total > 8 * 1024 * 1024:  # big batches: URLs only
+            data, fmt = _preview(k.files.path(f).read_bytes(), o["mime"])
+            if total + len(data) > INLINE_BUDGET:  # big batches: URLs only
                 break
-            blocks.append(Image(data=raw, format=o["mime"].split("/")[-1]))
+            total += len(data)
+            blocks.append(Image(data=data, format=fmt))
+        view = {**view, "note": f"inline images are previews (<= {PREVIEW_PX} px); full size at outputs[].url"}
         return [*blocks, json.dumps(view, default=str)]
     if view["state"] not in FINAL and view["state"] != "paused":
         view = {**view, "note": "still running; call wait_job(job_id) or get_job(job_id)"}

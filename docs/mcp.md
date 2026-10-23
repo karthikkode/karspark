@@ -29,8 +29,9 @@ Any other client: Streamable HTTP, header `Authorization: Bearer <key>`.
 
 ## Tools
 
-**Generation.** Media tools wait up to `wait_s` (default 50, max 55). A finished image comes back as image
-content plus the job (with file URLs). Anything still running comes back as the job with `eta_s`; carry on
+**Generation.** Media tools wait up to `wait_s` (default 50, max 55). A finished image comes back as a preview
+image (at most 768 px, JPEG or PNG with alpha, under 600 KB in total so one reply stays below the 1 MB SSE
+event limit of MCP clients) plus the job, whose `outputs[].url` is the full-size file. Anything still running comes back as the job with `eta_s`; carry on
 with `wait_job`.
 
 | tool | defaults |

@@ -97,3 +97,18 @@ async def test_tools_status_text_and_image(served):
     await k.log.flush()
     tools = [r["tool"] for r in await k.log.requests(path="/mcp", limit=200)]
     assert "generate_image" in tools and "status" in tools
+
+
+def test_inline_previews_stay_small():
+    # seen live: a 1024x1024 FLUX PNG inline was over 1 MB as base64 and broke the client's SSE limit
+    import io, os
+    from PIL import Image as PImage
+    from karspark.mcp_server import INLINE_BUDGET, PREVIEW_PX, _preview
+    buf = io.BytesIO()
+    PImage.frombytes("RGB", (1600, 1600), os.urandom(1600 * 1600 * 3)).save(buf, "PNG")
+    data, fmt = _preview(buf.getvalue(), "image/png")
+    assert len(buf.getvalue()) > 4 * INLINE_BUDGET and fmt == "jpeg" and len(data) < INLINE_BUDGET
+    assert max(PImage.open(io.BytesIO(data)).size) == PREVIEW_PX
+    buf = io.BytesIO()
+    PImage.new("RGBA", (1024, 1024), (255, 0, 0, 128)).save(buf, "PNG")
+    assert _preview(buf.getvalue(), "image/png")[1] == "png"     # layers keep their alpha

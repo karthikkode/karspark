@@ -28,5 +28,5 @@ about 100 s. Core r8 fails such a job clearly instead of returning empty text.
 longer adds `max_tokens`, and the context was raised from 128K to the model's full 256K, so a request
 runs until the model is done; a looping one is stopped (`core/karspark/loopguard.py`).
 Rerun with no cap (`bench/2026-10-23-nocap/`): the same chapter, thinking on, wrote **1871 and 1672 words**
-(31.5K tokens in 21 min, then ~27K in 20 min, ~24 tok/s). Expect about 20 minutes for a chapter with full
+(31.5K tokens in 21 min, then 25.6K in 19 min, ~24 tok/s). Expect about 20 minutes for a chapter with full
 reasoning, or about 100 s with `reasoning_effort="none"`.

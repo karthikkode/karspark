@@ -4,7 +4,7 @@ One endpoint: **`http://100.101.249.74:8080`** (Tailscale). Text (OpenAI `/v1/..
 jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 
 **State on 2026-10-23:**
-- **Live:** karspark-core `0.1.0-r12` on :8080 (cutover 2026-10-23); the gateway is removed.
+- **Live:** karspark-core `0.1.0-r13` on :8080 (cutover 2026-10-23); the gateway is removed.
   Box in `coding` (Flash-Next). 48 tests pass. Core sets no `max_tokens` (r10); a looping stream or text job
   is stopped by `loopguard.py`.
 - **Creative mode** ran end to end on the GPU: every media tool, pause/resume, cancel, preemption, text-job
@@ -16,7 +16,7 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 
 | what | image | where | status |
 |---|---|---|---|
-| karspark-core | `karspark/core:0.1.0-r12` | `core/`, unit `core/karspark-core.service`, `--network host`, `:8080` | **deployed** 2026-10-23 |
+| karspark-core | `karspark/core:0.1.0-r13` | `core/`, unit `core/karspark-core.service`, `--network host`, `:8080` | **deployed** 2026-10-23 |
 | llama-swap gateway (pre-core) | `karspark/gateway:265` | removed from the repo and the box (2026-10-23) | **removed** |
 
 ## Modes (`config/modes.yaml`)
@@ -64,7 +64,7 @@ Everything runs in Docker. Nothing is installed on the host except Docker itself
 
 | image | what | built from |
 |---|---|---|
-| `karspark/core:0.1.0-r12` | karspark-core (FastAPI, scheduler, MCP) + docker CLI | `core/Dockerfile` |
+| `karspark/core:0.1.0-r13` | karspark-core (FastAPI, scheduler, MCP) + docker CLI | `core/Dockerfile` |
 | `karspark/comfyui:0.42.4-r7` | ComfyUI + torch 2.13 cu130 + karspark job adapter + pausable sampler nodes + IndexTTS-2.5 worker (own venv, transformers 4.52) | `engines/comfyui/Dockerfile` |
 | `karspark/vllm-salient:2026-10-14-77154ca6` | vLLM nightly + 14 Flash-Next patches | `engines/vllm-salient/upstream/Dockerfile` |
 | `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM | Docker Hub, pinned digest |
