@@ -30,7 +30,7 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 | recipe id | models | port | weights | engine | memory | load time | status |
 |---|---|---|---|---|---|---|---|
 | `qwen3.8-flash:vllm-salient` | `qwen3.8-flash` | 10011 | `nvidia/Qwen3.8-Flash-Next-NVFP4@fc694b54` | vllm-salient 2026-10-14-77154ca6 | 73.5 GiB weights + 13.6 GiB KV | 360 s cold | **deployed** (under the gateway): 70.6 tok/s 1-stream, 100 tok/s total @8 |
-| `qwen3.8-27b:vllm` | `qwen3.8-27b` | 10030 | `unsloth/Qwen3.8-27B-NVFP4@f0b7c9e7` (downloading) | vllm-salient (to confirm) | 0.25 util ≈ 30 GiB | – | **draft**; bake-off vs Muse-Glimmer-30B in phase 0 |
+| `qwen3.8-27b:vllm` | `qwen3.8-27b` | 10030 | `unsloth/Qwen3.8-27B-NVFP4@f0b7c9e7` | vllm-salient (to confirm) | 0.25 util ≈ 30 GiB | – | **draft**; bake-off vs Muse-Glimmer-30B in phase 0 |
 | `comfyui:comfy` | `flux2-dev`, `qwen-image-layered`, `ltx-2.5`, `seedvr2-7b`, `seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime` | 10020 | below | `karspark/comfyui:0.42.4-r4` | ≤ 75 GiB (one model family at a time) | – | ready; 14/14 graphs pass ComfyUI's validator; not run on the GPU |
 | `qwen3-0.6b:vllm` | `qwen3-0.6b` | 10002 | `Qwen/Qwen3-0.6B@c1899de2` | vLLM 0.32.0 | ~13 GiB (0.08 util) | ~112 s cold | deployed 2026-10-22 (test) |
 
@@ -40,8 +40,8 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 |---|---|---|---|
 | `nvidia/Qwen3.8-Flash-Next-NVFP4@fc694b54` | `~/models/llm/qwen3.8-flash-next-nvfp4` | 132.7 GB | `qwen3.8-flash:vllm-salient` |
 | `Qwen/Qwen3-0.6B@c1899de2` | `~/models/llm/qwen3-0.6b` | 1.5 GB | `qwen3-0.6b:vllm` |
-| `unsloth/Qwen3.8-27B-NVFP4@f0b7c9e7` | `~/models/llm/qwen3.8-27b-nvfp4` | 23.4 GB | `qwen3.8-27b:vllm` (downloading 2026-10-23) |
-| `nvidia/Muse-Glimmer-30B-NVFP4@47818374` + `meta-models/Muse-Glimmer-30B-assistant@c676cce9` | `~/models/llm/muse-glimmer-30b-{nvfp4,assistant}` | 24.7 + 5.1 GB | planner challenger (queued downloads) |
+| `unsloth/Qwen3.8-27B-NVFP4@f0b7c9e7` | `~/models/llm/qwen3.8-27b-nvfp4` | 23.4 GB | `qwen3.8-27b:vllm` (downloaded 2026-10-23) |
+| `nvidia/Muse-Glimmer-30B-NVFP4@47818374` + `meta-models/Muse-Glimmer-30B-assistant@c676cce9` | `~/models/llm/muse-glimmer-30b-{nvfp4,assistant}` | 24.7 + 5.1 GB | planner challenger (downloading 2026-10-23) |
 | `black-forest-labs/FLUX.2-dev-NVFP4@142b87e7` (pure NVFP4) | `~/models/image/flux2-dev-nvfp4` | 21.0 GB | `flux2-dev` |
 | `Comfy-Org/flux2-dev@ed33133c` (Mistral FP4 TE, Turbo LoRA v2, VAE) | `~/models/image/flux2-dev-comfy` | 15.4 GB | `flux2-dev`, `flux2-refine` |
 | `Lightricks/LTX-2.5@49b093a3` (distilled int8-convrot, Gemma-4 12B int8 TE, VAEs, 2× upscaler) | `~/models/video/ltx-2.5` | 39.7 GB | `ltx-2.5` |
