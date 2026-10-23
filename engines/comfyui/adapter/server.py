@@ -116,6 +116,8 @@ def _progress(d):
 async def _final_state(session, job_id, entry):
     """ComfyUI's verdict on a finished prompt, mapped onto karspark states."""
     status = entry.get("status", {})
+    if status.get("completed") and RUNS[job_id]["cancel"]:
+        return {"state": "cancelled"}   # finished before the cancel took effect; the caller asked to drop it
     if status.get("completed"):
         outputs = []
         for node_out in entry.get("outputs", {}).values():
@@ -129,8 +131,15 @@ async def _final_state(session, job_id, entry):
         if RUNS[job_id]["cancel"]:
             return {"state": "cancelled"}
         return {"state": "paused"}
-    detail = next((m[1] for m in status.get("messages", []) if m and m[0] == "execution_error"), status)
-    return {"state": "failed", "error": detail}
+    detail = next((m[1] for m in status.get("messages", []) if m and m[0] == "execution_error"), None)
+    if not isinstance(detail, dict):
+        return {"state": "failed", "error": {"message": "ComfyUI job failed", "status": status}}
+    # callers get the cause in one line; the full traceback stays in the ComfyUI container log
+    return {"state": "failed", "error": {
+        "message": f"{detail.get('node_type')} (node {detail.get('node_id')}): {detail.get('exception_type')}: "
+                   f"{str(detail.get('exception_message', '')).strip()}",
+        "node_type": detail.get("node_type"), "exception_type": detail.get("exception_type"),
+        "traceback_tail": "".join(detail.get("traceback") or [])[-1500:]}}
 
 
 async def job_status(request):
@@ -148,8 +157,18 @@ async def job_status(request):
             (d / "PAUSE").unlink(missing_ok=True)
             async with session.post(f"{COMFY}/history", json={"delete": [cur["prompt_id"]]}):
                 pass
+        elif cur["cancel"] and not await _queued_or_running(session, cur["prompt_id"]):
+            # deleted from ComfyUI's queue before it ran: it will never reach the history
+            cur["final"] = {"state": "cancelled"}
+            (d / "PAUSE").unlink(missing_ok=True)
     out = cur["final"] or {"state": "running"}
     return web.json_response({**out, "job_id": job_id, "run_id": cur["run_id"], "progress": _progress(d)})
+
+
+async def _queued_or_running(session, prompt_id):
+    async with session.get(f"{COMFY}/queue") as r:
+        q = await r.json()
+    return any(item[1] == prompt_id for key in ("queue_running", "queue_pending") for item in q.get(key, []))
 
 
 async def pause(request):
@@ -167,6 +186,9 @@ async def cancel(request):
     if not cur or cur["final"] is not None:
         return err("job is not running", 409)
     cur["cancel"] = True
+    # The PAUSE flag stops the sampler at its next step even if the prompt starts after the interrupt below
+    # (ComfyUI skips an interrupt for a prompt that is dequeued but not executing yet).
+    (job_dir(job_id) / "PAUSE").touch()
     session = request.app["session"]
     async with session.post(f"{COMFY}/queue", json={"delete": [cur["prompt_id"]]}):
         pass

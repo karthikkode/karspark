@@ -26,7 +26,7 @@ other projects call without thinking about GPUs, loading or queues.
    │ logging service (async writer → logs.db)      jobs + files (karspark.db, WAL)    │
    └──────────────────────────────────────────────────────────────────────────────────┘
         mode coding (P0, default)               mode creative
-        └ qwen3.8-flash:vllm-salient ~100 GiB   ├ qwen3.8-27b:vllm  ~32 GiB  (planner LLM, always on)
+        └ qwen3.8-flash:vllm-salient ~100 GiB   ├ qwen3.8-27b:vllm  ~36 GiB  (planner LLM, always on)
                                                 └ comfyui:comfy     ~75 GiB  (FLUX.2, Qwen-Layered, LTX-2.5, SeedVR2)
  state: ~/data/karspark.db · ~/data/logs.db · ~/data/jobs/<id>/{in,out,ckpt} · ~/data/files/
 ```

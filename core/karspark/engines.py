@@ -4,12 +4,16 @@ Engines run detached (`docker run -d`) on their recipe's fixed port, so when cor
 ones still running instead of reloading minutes of weights. Core talks to the host's Docker through the
 mounted socket, so every path in a recipe is a host path (${models}, ${engines}, ${data}).
 
+Each engine carries a hash of its recipe (label `karspark.hash`). Adoption needs the hash to match, so a
+deploy that changes a recipe reloads that engine and adopts the rest unchanged.
+
 Before a start, core waits until the recipe's `memory_gib` is really free: on unified memory a stopped
 model takes a while to hand its pages back, and vLLM sizes itself from free memory when it starts.
 """
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 import shlex
 import time
@@ -31,6 +35,10 @@ def render_run(recipe: Recipe, paths: dict[str, str]) -> list[str]:
     return shlex.split(text)
 
 
+def recipe_hash(recipe: Recipe) -> str:
+    return hashlib.sha256(f"{recipe.id}\n{recipe.port}\n{recipe.run}".encode()).hexdigest()[:12]
+
+
 class DockerRunner:
     """The real thing: the docker CLI against the host daemon."""
 
@@ -50,7 +58,7 @@ class DockerRunner:
     async def start(self, recipe: Recipe):
         await self._docker("rm", "-f", recipe.container)  # leftover from a crash
         args = ["run", "-d", "--init", "--name", recipe.container, "--label", "karspark.recipe=" + recipe.id,
-                *render_run(recipe, self.paths)]
+                "--label", "karspark.hash=" + recipe_hash(recipe), *render_run(recipe, self.paths)]
         rc, out = await self._docker(*args, timeout=300)
         if rc != 0:
             raise RuntimeError(f"docker run failed: {out.strip()[-2000:]}")
@@ -66,6 +74,12 @@ class DockerRunner:
         rc, out = await self._docker("inspect", "-f", '{{.State.Running}} {{index .Config.Labels "karspark.recipe"}}',
                                      recipe.container, timeout=20)
         return rc == 0 and out.split() == ["true", recipe.id]
+
+    async def current(self, recipe: Recipe) -> bool:
+        """Running, ours, and started from this exact recipe (an edited recipe must reload)."""
+        rc, out = await self._docker("inspect", "-f", '{{.State.Running}} {{index .Config.Labels "karspark.recipe"}} '
+                                     '{{index .Config.Labels "karspark.hash"}}', recipe.container, timeout=20)
+        return rc == 0 and out.split() == ["true", recipe.id, recipe_hash(recipe)]
 
     async def logs(self, recipe: Recipe, lines=40) -> str:
         _, out = await self._docker("logs", "--tail", str(lines), recipe.container, timeout=20)
@@ -126,9 +140,11 @@ class EngineManager:
         """After a core restart: our engines that are running and healthy are taken over as-is. One still
         loading is left alone; when its mode is wanted, _start waits for it instead of restarting it."""
         for e in self.engines.values():
-            if await self.runner.running(e.recipe) and await self.healthy(e.recipe):
+            if await self.runner.current(e.recipe) and await self.healthy(e.recipe):
                 self._set(e, READY)
                 self.log.engine_event(e.recipe.id, "adopted")
+            elif await self.runner.running(e.recipe):
+                self.log.engine_event(e.recipe.id, "stale")  # recipe changed: reloaded when its mode is wanted
 
     async def ensure(self, wanted: list[str]):
         """Make exactly `wanted` run: stop the rest first (frees memory), then start what's missing, in order."""
@@ -167,8 +183,10 @@ class EngineManager:
         self._set(e, STARTING)
         t0 = time.monotonic()
         waited = 0.0
-        if await self.runner.running(r):  # ours, still loading from before a core restart: wait for it
+        if await self.runner.current(r):  # ours, still loading from before a core restart: wait for it
             return await self._wait_healthy(e, t0)
+        if await self.runner.running(r):  # ours but from an older recipe: replace it
+            await self.runner.stop(r)
         while self.mem_free() < r.memory_gib:
             if waited >= self.mem_wait_s:
                 self._set(e, FAILED, f"only {self.mem_free():.0f} GiB free, need {r.memory_gib}")

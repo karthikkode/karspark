@@ -1,6 +1,6 @@
 # comfyui (images, layers, video)
 
-One container, `karspark/comfyui:0.42.4-r4` ([engine](../../engines/comfyui/README.md)), serves every
+One container, `karspark/comfyui:0.42.4-r6` ([engine](../../engines/comfyui/README.md)), serves every
 diffusion model. Weights are read-only from `~/models` via `extra_model_paths.yaml`. The graphs live in
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
@@ -93,6 +93,6 @@ tools with the parameters below.
   target size, then FLUX.2 Turbo at denoise 0.35 (about 4 of 12 steps). Video: LTX-2.5 already renders
   at half size and upscales 2× itself, so SeedVR2 is for going past 720p.
 
-Runs in mode `creative` with the planner (107 GiB together). ComfyUI loads weights on demand, and core frees the
+Runs in mode `creative` with the planner (111 GiB together). ComfyUI loads weights on demand, and core frees the
 previous family before a different one runs: about 34 GB for FLUX.2, 30 GB for
 Qwen-Image-Layered, and 40 GB for LTX-2.5.

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Deploy karspark-core to the Spark. Everything runs in Docker: images are built from this repo
 # (scripts/build-images.sh), the config (recipes/ + config/) is validated here first, then copied to
-# ~/core/config. Restarting core does not unload models: engines run detached and core adopts them.
+# ~/core/config. Restarting core does not unload models: engines run detached and core adopts them, except an
+# engine whose recipe changed, which reloads.
 #
 #   scripts/deploy.sh [--cutover] [ssh-host]      default host: spark
 #
@@ -74,7 +75,7 @@ ssh "$HOST" "unit=~/.config/systemd/user/karspark-core.service
   else
     mv ~/core/karspark-core.service.new \$unit
     systemctl --user daemon-reload && systemctl --user enable karspark-core >/dev/null 2>&1
-    systemctl --user restart karspark-core; echo '   core (re)started (engines keep running)'
+    systemctl --user restart karspark-core; echo '   core (re)started (engines adopted; any whose recipe changed reloads)'
   fi
   for i in \$(seq 1 30); do curl -s -o /dev/null -m2 localhost:8080/health && break; sleep 1; done
   systemctl --user is-active karspark-core"

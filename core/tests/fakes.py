@@ -6,24 +6,31 @@ from pathlib import Path
 
 import httpx
 
+from karspark.engines import recipe_hash
+
 
 class FakeRunner:
     def __init__(self):
         self.up: set[str] = set()
         self.starts: list[str] = []
         self.fail: set[str] = set()
+        self.hashes: dict[str, str] = {}
 
     async def start(self, r):
         if r.id in self.fail:
             raise RuntimeError("boom")
         self.starts.append(r.id)
         self.up.add(r.id)
+        self.hashes[r.id] = recipe_hash(r)
 
     async def stop(self, r):
         self.up.discard(r.id)
 
     async def running(self, r):
         return r.id in self.up
+
+    async def current(self, r):
+        return r.id in self.up and self.hashes.get(r.id) == recipe_hash(r)
 
     async def logs(self, r, lines=40):
         return "fake logs"

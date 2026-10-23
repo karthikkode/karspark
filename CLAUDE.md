@@ -9,8 +9,9 @@ recipe in `recipes/<model>/<recipe>.yaml`, started by core as part of a mode (`c
 add a standalone systemd unit, a public port, or a key outside core's key store.
 
 ## Rules
-- Changes flow repo → Spark: edit recipes/config/core, then `scripts/deploy.sh` (validates, builds,
-  copies config, restarts core; engines keep running). Never hand-edit `~/core/config` on the box.
+- Changes flow repo → Spark: edit recipes/config/core, then `scripts/deploy.sh` (validates, builds, copies
+  config, restarts core; running engines are adopted unless their recipe changed). Never hand-edit
+  `~/core/config` on the box.
 - Update `docs/registry.md` and the recipe README in the same commit as the change. Any behaviour change
   also updates the docs that describe it, in the same commit (the table at the end of `docs/README.md`).
   Agents in other projects rely on `docs/agents.md` and the MCP `INSTRUCTIONS`, so keep both accurate.

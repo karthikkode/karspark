@@ -182,6 +182,21 @@ async def test_standard_mode_request_is_deferred_during_hold(env):
     assert r.status_code == 403
 
 
+async def test_concurrent_ticks_start_one_switch(env):
+    # request_mode() ticks inline while the loop ticks too; both once passed the `switching` check and ran two
+    # switches in parallel, starting every engine twice (seen on the box at cutover)
+    sched = env.k.sched
+    n = env.runner.starts.count("qwen3.8-27b:vllm")
+    owner = await env.k.keys.verify(OWNER)
+    await asyncio.gather(*[sched.tick() for _ in range(3)], sched.request_mode(owner, "creative"),
+                         *[sched.tick() for _ in range(3)])
+    await env.until(lambda: sched.state.current == "creative" and not sched.switching)
+    assert env.runner.starts.count("qwen3.8-27b:vllm") == n + 1
+    await env.k.log.flush()
+    starts = [e for e in await env.k.log.scheduler_events() if e["kind"] == "mode_switch_start" and e["data"]["dst"] == "creative"]
+    assert len(starts) == 1
+
+
 async def test_validation_idempotency_and_cancel(env):
     std = await env.key("proj-a", "standard")
     r = await env.c.post("/v1/jobs", json={"type": "video", "prompt": "x", "audio": "music"}, headers=std)
@@ -266,3 +281,44 @@ async def test_core_restart_adopts_engines_and_resumes_job(env, tmp_path):
     finally:
         await k2.stop()
         env.k = k2
+
+
+async def test_core_restart_reloads_only_engines_whose_recipe_changed(env, tmp_path):
+    await go_creative(env)
+    env.runner.hashes["qwen3.8-27b:vllm"] = "older-recipe"   # as if the planner's recipe was edited and deployed
+    starts = list(env.runner.starts)
+    await env.k.stop()
+    k2 = Karspark(REPO, tmp_path, PEPPER, runner=env.runner, http=httpx.AsyncClient(transport=env.k.http._transport),
+                  clock=env.clock, background=False, tick_s=0.01, mem_free=lambda: 1000, poll_s=0.01)
+    await k2.start()
+    try:
+        for _ in range(500):
+            if k2.engines.ready("qwen3.8-27b:vllm") and not k2.sched.switching:
+                break
+            await asyncio.sleep(0.01)
+        assert env.runner.starts[len(starts):] == ["qwen3.8-27b:vllm"]   # ComfyUI adopted, the planner reloaded
+        assert k2.engines.ready("comfyui:comfy") and k2.sched.state.current == "creative"
+    finally:
+        await k2.stop()
+        env.k = k2
+
+
+async def test_cancel_the_engine_never_confirms_is_forced(env):
+    await go_creative(env)
+    std = await env.key("proj-a", "standard")
+    env.comfy.steps = 10**6
+    job = (await env.c.post("/v1/jobs", json={"type": "image", "prompt": "stuck"}, headers=std)).json()
+    await env.until(lambda: env.comfy.jobs.get(job["id"], {}).get("step", 0) >= 1)
+    env.comfy.hold = True                                   # the engine stops answering the cancel
+    await env.c.post(f"/v1/jobs/{job['id']}/cancel", headers=std)
+    await asyncio.sleep(0.1)
+    assert (await env.k.jobs.get(job["id"]))["state"] == "cancelling"
+    env.clock.advance(121)
+    await env.until(lambda: _is_state(env, job["id"], "cancelled"))
+    nxt = (await env.c.post("/v1/jobs", json={"type": "image", "prompt": "next"}, headers=std)).json()
+    env.comfy.hold, env.comfy.steps = False, 3
+    await env.until(lambda: _is_state(env, nxt["id"], "succeeded"))   # the slot was freed
+
+
+async def _is_state(env, job_id, state):
+    return (await env.k.jobs.get(job_id))["state"] == state

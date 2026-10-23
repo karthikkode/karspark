@@ -16,4 +16,4 @@ run: |
   -v ${data}/jobs:/jobs
   -e HF_HUB_OFFLINE=1
   -e 'COMFY_ARGS=--disable-pinned-memory --reserve-vram 4'
-  karspark/comfyui:0.42.4-r4
+  karspark/comfyui:0.42.4-r6

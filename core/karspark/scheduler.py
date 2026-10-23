@@ -39,6 +39,9 @@ class Stream:
     coding: bool = False
 
 
+CANCEL_FORCE_S = 120
+
+
 @dataclass
 class Run:
     job: dict
@@ -48,6 +51,7 @@ class Run:
     reason: str | None = None
     actor: str | None = None
     started: float = field(default_factory=time.time)
+    command_t: float = 0.0            # when the command was given (a cancel the engine never confirms is forced)
 
 
 class Scheduler:
@@ -60,6 +64,7 @@ class Scheduler:
         self.state = ModeState(current=s.default_mode, since=clock(), last_activity=clock())
         self.switching: str | None = None
         self.switch_reason: str | None = None
+        self._tick_lock = asyncio.Lock()  # the loop and request_mode() both tick; one at a time (one switch)
         self.fair_media = FairShare()
         self.fair_text: dict[str, FairShare] = {}
         self.text_waiters: list[TextWaiter] = []
@@ -123,6 +128,10 @@ class Scheduler:
 
     # ---------------------------------------------------------------- the decision step
     async def tick(self):
+        async with self._tick_lock:
+            await self._tick()
+
+    async def _tick(self):
         now = self.clock()
         if self.runs or self.streams:
             self.state.last_activity = now
@@ -273,7 +282,7 @@ class Scheduler:
             return False
         if run.command == "cancel":
             return True
-        run.command, run.actor, run.reason = cmd, actor, reason
+        run.command, run.actor, run.reason, run.command_t = cmd, actor, reason, self.clock()
         state = {"pause": "pausing", "cancel": "cancelling"}.get(cmd, "preempting")
         await self.jobs.set(job_id, state, actor=actor, reason=reason)
         await self.workers.signal(run)
@@ -282,6 +291,16 @@ class Scheduler:
     async def _timeouts(self, now):
         for run in list(self.runs.values()):
             j = await self.jobs.get(run.job["id"])
+            if j and run.command == "cancel" and now - run.command_t > CANCEL_FORCE_S:
+                # the engine never confirmed (e.g. ComfyUI dropped the interrupt): stop waiting, free the slot
+                if run.task:
+                    run.task.cancel()
+                self.runs.pop(j["id"], None)
+                await self.jobs.set(j["id"], "cancelled", actor=run.actor or "karspark",
+                                    reason=f"{run.reason or 'cancelled'}; forced after {CANCEL_FORCE_S}s without engine confirmation")
+                self.jobs.purge(j["id"])
+                await self.workers.notify(await self.jobs.get(j["id"]))
+                continue
             if not j or run.command:
                 continue
             limit = self.cfg.sched.job_timeout_s.get(j["kind"], 3600)
@@ -447,6 +466,8 @@ class Scheduler:
         return "waiting for running work in the current mode"
 
     def _begin_switch(self, target, reason):
+        if self.switching:
+            return
         self.switching, self.switch_reason = target, reason
         self.switch_task = asyncio.create_task(self._switch(target, reason))
 

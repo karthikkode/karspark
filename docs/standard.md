@@ -85,8 +85,8 @@ and every mode under 115 GiB.
    `engines/comfyui/adapter/workflows.py` (checked with `scripts/validate-comfy-graphs.sh`).
 5. **Mode:** add the recipe to a mode in `config/modes.yaml`. A mode's engines run together, so they must
    fit in memory together.
-6. **Deploy:** `scripts/deploy.sh`. It validates, builds images, copies the config and restarts core. Engines
-   that keep running are adopted, not reloaded.
+6. **Deploy:** `scripts/deploy.sh`. It validates, builds images, copies the config and restarts core. Running engines
+   are adopted, not reloaded, unless their recipe changed (core compares a recipe hash label).
 7. **Verify** through core with a key: `/v1/models`, one real request or job, then measure memory and load
    time (`/v1/status`, `engine_events`), and write them in the recipe README and registry.
 8. **Commit** recipe + registry together.

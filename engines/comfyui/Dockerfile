@@ -5,6 +5,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libgl1 l
  && rm -rf /var/lib/apt/lists/*
 # torch 2.13 + cu130 is what ran FLUX.2 on this GB10 before the wipe. pip picks the matching vision/audio.
 RUN pip install --no-cache-dir torch==2.13.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+# Triton compiles its CUDA helper with a C compiler at first use (torch 2.13 runs Triton ops in the text
+# encoders). Its own layer after torch so the torch layer stays cached.
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
 # ComfyUI source at a pinned tag, fetched on the laptop by scripts/build-images.sh (GitHub crawls from the Spark).
 COPY .dl/comfyui.tar.gz /tmp/comfyui.tar.gz
 RUN mkdir /opt/comfyui && tar -xzf /tmp/comfyui.tar.gz -C /opt/comfyui --strip-components=1 && rm /tmp/comfyui.tar.gz \

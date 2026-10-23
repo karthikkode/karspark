@@ -1,6 +1,6 @@
 # Engine: comfyui
 
-Image `karspark/comfyui:0.42.4-r4`, built by `scripts/build-images.sh` from the [Dockerfile](Dockerfile):
+Image `karspark/comfyui:0.42.4-r6`, built by `scripts/build-images.sh` from the [Dockerfile](Dockerfile):
 
 - `python:3.12-slim` (pinned digest) + torch **2.13.0+cu130**, torchvision 0.28.0, torchaudio 2.11.0,
   comfy-kitchen 0.2.39 (built 2026-10-22, 6.9 GB; full set in `/opt/pip-freeze.txt` inside the image)
