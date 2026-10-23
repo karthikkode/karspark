@@ -21,7 +21,7 @@ tools with the parameters below.
 | `esrgan-anime` (also the first step of `flux2-refine`) | RealESRGAN x4plus anime 6B. Instant, adds no detail | official GitHub release v0.2.2.4, converted to safetensors by `scripts/fetch-pth.sh` → `~/models/image/upscale-gan` | sha256 `f872d837…` (.pth) |
 | character LoRAs | for `flux2-dev` | `~/models/image/loras/<name>.safetensors` | ours |
 | `indextts-2.5` | IndexTTS-2.5 zero-shot TTS (bf16): text → narration WAV in a cloned voice. Not a ComfyUI graph: the adapter runs it in a worker process with its own venv, and `/v1/free` stops it like any family swap | `IndexTeam/IndexTTS-2.5` → `~/models/audio/indextts-2.5` (no `qwen0.6bemo4-merge`: emotion-from-text is off); `facebook/w2v-bert-2.0` → `~/models/audio/w2v-bert-2.0`; `funasr/campplus` → `~/models/audio/campplus`; `nvidia/bigvgan_v2_22khz_80band_256x` (generator only) → `~/models/audio/bigvgan-v2-22khz` | `c39ce5ba`, `da985ba0`, `e4b6ede7`, `633ff708` |
-| voice `narrator-male` | the built-in narrator: `examples/voice_05.wav` of the `IndexTeam/IndexTTS-2-Demo` space (a calm male storyteller, Chinese speaker, 8.4 s) | `~/models/audio/indextts-voices/narrator-male.wav` (sha256 `eefb7f4a…`) | space `b01840e8` |
+| voice `narrator-male` | the built-in narrator: `examples/voice_05.wav` of the `IndexTeam/IndexTTS-2-Demo` space (a calm male storyteller, Chinese speaker, 8.4 s; original sha256 `eefb7f4a…`), made mono and turned down 7 dB (`ffmpeg -ac 1 -af volume=-7dB`): the original peaks at 0 dBFS and IndexTTS copies its loudness, which clipped (274 full-scale samples in 10 s, now 17) | `~/models/audio/indextts-voices/narrator-male.wav` (sha256 `e6ec91e4…`) | space `b01840e8` |
 
 ## Job parameters (served by karspark-core from phase 2: `/v1/jobs`, MCP)
 

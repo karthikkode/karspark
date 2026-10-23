@@ -1,0 +1,44 @@
+{
+ "summary": {
+  "label": "nocap",
+  "model": "qwen3.8-27b",
+  "checks": "2/2",
+  "tool_steps": "0/0",
+  "median_tok_s": 25.1,
+  "errors": 0
+ },
+ "rows": [
+  {
+   "run": 0,
+   "task": "longform-chapter",
+   "kind": "longform",
+   "metrics": {
+    "s": 1256.44,
+    "completion_tokens": 31514,
+    "prompt_tokens": 134,
+    "tok_s": 25.1
+   },
+   "checks": {
+    "length": true,
+    "words": 1871
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "longform-chapter",
+   "kind": "longform",
+   "metrics": {
+    "s": 1154.58,
+    "completion_tokens": 25628,
+    "prompt_tokens": 134,
+    "tok_s": 22.2
+   },
+   "checks": {
+    "length": true,
+    "words": 1672
+   },
+   "error": null
+  }
+ ]
+}

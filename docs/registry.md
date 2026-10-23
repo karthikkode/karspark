@@ -55,7 +55,7 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 | `facebook/w2v-bert-2.0@da985ba0` (safetensors only) | `~/models/audio/w2v-bert-2.0` | 2.3 GB | `indextts-2.5` |
 | `funasr/campplus@e4b6ede7` (campplus_cn_common.bin) | `~/models/audio/campplus` | 28 MB | `indextts-2.5` |
 | `nvidia/bigvgan_v2_22khz_80band_256x@633ff708` (generator only) | `~/models/audio/bigvgan-v2-22khz` | 449 MB | `indextts-2.5` |
-| voice `narrator-male` = `IndexTeam/IndexTTS-2-Demo` space `examples/voice_05.wav` @ `b01840e8` | `~/models/audio/indextts-voices` | 1.5 MB | `indextts-2.5` |
+| voice `narrator-male` = `IndexTeam/IndexTTS-2-Demo` space `examples/voice_05.wav` @ `b01840e8`, mono, −7 dB | `~/models/audio/indextts-voices` | 1.5 MB | `indextts-2.5` |
 | RealESRGAN x4plus anime 6B (GitHub v0.2.2.4 → safetensors, `scripts/fetch-pth.sh`) | `~/models/image/upscale-gan` | 18 MB | `esrgan-anime`, `flux2-refine` |
 
 ## Images
