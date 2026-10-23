@@ -15,6 +15,13 @@ PEPPER = "x" * 40
 OWNER = "sk-ks-owner-test-key-0000000000"
 
 
+def planner_id():
+    """The creative mode's text engine, whichever planner config/modes.yaml currently names."""
+    from karspark import config
+    cfg = config.load(REPO)
+    return next(r for r in cfg.modes["creative"].engines if cfg.recipes[r].kind == "text")
+
+
 @pytest.fixture
 async def env(tmp_path, monkeypatch):
     monkeypatch.setattr(workers, "POLL_S", 0.01)
@@ -26,6 +33,7 @@ async def env(tmp_path, monkeypatch):
     flash, planner, tiny = FakeText("flash"), FakeText("planner"), FakeText("tiny")
     comfy = FakeComfy(tmp_path)
     handlers = {"qwen3.8-flash:vllm-salient": flash, "qwen3.8-27b:vllm": planner, "qwen3-0.6b:vllm": tiny,
+                "muse-glimmer-30b:vllm-dflash": planner,
                 "comfyui:comfy": comfy}
     http = httpx.AsyncClient(transport=transport(cfg, handlers, runner))
     k = Karspark(REPO, tmp_path, PEPPER, runner=runner, http=http, clock=clock, adopt=True, background=False,
@@ -186,12 +194,12 @@ async def test_concurrent_ticks_start_one_switch(env):
     # request_mode() ticks inline while the loop ticks too; both once passed the `switching` check and ran two
     # switches in parallel, starting every engine twice (seen on the box at cutover)
     sched = env.k.sched
-    n = env.runner.starts.count("qwen3.8-27b:vllm")
+    n = env.runner.starts.count(planner_id())
     owner = await env.k.keys.verify(OWNER)
     await asyncio.gather(*[sched.tick() for _ in range(3)], sched.request_mode(owner, "creative"),
                          *[sched.tick() for _ in range(3)])
     await env.until(lambda: sched.state.current == "creative" and not sched.switching)
-    assert env.runner.starts.count("qwen3.8-27b:vllm") == n + 1
+    assert env.runner.starts.count(planner_id()) == n + 1
     await env.k.log.flush()
     starts = [e for e in await env.k.log.scheduler_events() if e["kind"] == "mode_switch_start" and e["data"]["dst"] == "creative"]
     assert len(starts) == 1
@@ -285,7 +293,7 @@ async def test_core_restart_adopts_engines_and_resumes_job(env, tmp_path):
 
 async def test_core_restart_reloads_only_engines_whose_recipe_changed(env, tmp_path):
     await go_creative(env)
-    env.runner.hashes["qwen3.8-27b:vllm"] = "older-recipe"   # as if the planner's recipe was edited and deployed
+    env.runner.hashes[planner_id()] = "older-recipe"   # as if the planner's recipe was edited and deployed
     starts = list(env.runner.starts)
     await env.k.stop()
     k2 = Karspark(REPO, tmp_path, PEPPER, runner=env.runner, http=httpx.AsyncClient(transport=env.k.http._transport),
@@ -293,10 +301,10 @@ async def test_core_restart_reloads_only_engines_whose_recipe_changed(env, tmp_p
     await k2.start()
     try:
         for _ in range(500):
-            if k2.engines.ready("qwen3.8-27b:vllm") and not k2.sched.switching:
+            if k2.engines.ready(planner_id()) and not k2.sched.switching:
                 break
             await asyncio.sleep(0.01)
-        assert env.runner.starts[len(starts):] == ["qwen3.8-27b:vllm"]   # ComfyUI adopted, the planner reloaded
+        assert env.runner.starts[len(starts):] == [planner_id()]   # ComfyUI adopted, the planner reloaded
         assert k2.engines.ready("comfyui:comfy") and k2.sched.state.current == "creative"
     finally:
         await k2.stop()

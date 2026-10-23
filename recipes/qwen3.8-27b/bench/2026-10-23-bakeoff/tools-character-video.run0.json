@@ -1,0 +1,60 @@
+{
+ "run": 0,
+ "task": "tools-character-video",
+ "kind": "tools",
+ "metrics": {
+  "s": 25.16,
+  "completion_tokens": 585,
+  "tok_s": 23.3
+ },
+ "checks": {
+  "steps_ok": 4,
+  "steps_total": 4
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "generate_image",
+    "ok": true,
+    "got": [
+     [
+      "generate_image",
+      "{\"prompt\": \"Cinematic keyframe of the woman from the character sheet, standing alone on a city rooftop at night, neon-lit rain, wet reflective surfaces, glowing neon signs in the background, dramatic rim lighting, cyberpunk city skyline, shallow depth of field, photorealistic, 35mm film look\", \"size\": \"1216x1344\", \"reference_images\": [\"file_char01\"]}"
+     ]
+    ],
+    "content": "I'll create the keyframe first using your character sheet as reference."
+   },
+   {
+    "step": 1,
+    "want": "generate_video",
+    "ok": true,
+    "got": [
+     [
+      "generate_video",
+      "{\"prompt\": \"The woman slowly turns her body and head from a three-quarter profile toward the camera, calm confident expression, rain falling, neon light flickering on her face, camera stays still, subtle slow motion, cinematic\", \"first_frame\": \"file_kf01\", \"duration\": 5, \"size\": \"768x1024\"}"
+     ]
+    ],
+    "content": "Keyframe done. Now animating it into a 5-second clip of her turning toward the camera."
+   },
+   {
+    "step": 2,
+    "want": "wait_job",
+    "ok": true,
+    "got": [
+     [
+      "wait_job",
+      "{\"job_id\": \"job_vid1\", \"timeout_s\": 50}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": "final",
+    "ok": true,
+    "content": "\n\nBoth deliverables are ready:\n\n1. **Keyframe** — `file_kf01` (/v1/files/file_kf01/content)\n   Her on the rooftop in neon rain, using your character sheet for likeness.\n\n2. **5-second clip** — `file_vid01` (/v1/files/file_vid01/content)\n   Animated from the keyframe with her turning toward the camera, rain and flickering neon kept in motion.\n\nWant me to extend the clip, add a last-frame pose for more control, or upscale the keyframe?"
+   }
+  ]
+ }
+}

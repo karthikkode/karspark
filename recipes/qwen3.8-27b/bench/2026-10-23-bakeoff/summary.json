@@ -1,0 +1,206 @@
+{
+ "summary": {
+  "label": "bakeoff",
+  "model": "qwen3.8-27b",
+  "checks": "14/18",
+  "tool_steps": "18/18",
+  "median_tok_s": 23.8,
+  "errors": 0
+ },
+ "rows": [
+  {
+   "run": 0,
+   "task": "prompts-beats",
+   "kind": "prompts",
+   "metrics": {
+    "s": 200.78,
+    "completion_tokens": 5603,
+    "prompt_tokens": 241,
+    "tok_s": 27.9
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "flux_length": true,
+    "ltx_silent": false
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "plan-30s",
+   "kind": "plan",
+   "metrics": {
+    "s": 66.46,
+    "completion_tokens": 1553,
+    "prompt_tokens": 185,
+    "tok_s": 23.4
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "each_le_20s": true,
+    "total_close": true
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "longform-chapter",
+   "kind": "longform",
+   "metrics": {
+    "s": 805.09,
+    "completion_tokens": 16384,
+    "prompt_tokens": 134,
+    "tok_s": 20.4
+   },
+   "checks": {
+    "length": false,
+    "words": 0
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "tools-character-video",
+   "kind": "tools",
+   "metrics": {
+    "s": 25.16,
+    "completion_tokens": 585,
+    "tok_s": 23.3
+   },
+   "checks": {
+    "steps_ok": 4,
+    "steps_total": 4
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "tools-layers-upscale",
+   "kind": "tools",
+   "metrics": {
+    "s": 10.08,
+    "completion_tokens": 242,
+    "tok_s": 24.0
+   },
+   "checks": {
+    "steps_ok": 3,
+    "steps_total": 3
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "tools-first-last",
+   "kind": "tools",
+   "metrics": {
+    "s": 27.57,
+    "completion_tokens": 655,
+    "tok_s": 23.8
+   },
+   "checks": {
+    "steps_ok": 2,
+    "steps_total": 2
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "prompts-beats",
+   "kind": "prompts",
+   "metrics": {
+    "s": 190.9,
+    "completion_tokens": 4791,
+    "prompt_tokens": 241,
+    "tok_s": 25.1
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "flux_length": true,
+    "ltx_silent": false
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "plan-30s",
+   "kind": "plan",
+   "metrics": {
+    "s": 65.3,
+    "completion_tokens": 1388,
+    "prompt_tokens": 185,
+    "tok_s": 21.3
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "each_le_20s": true,
+    "total_close": true
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "longform-chapter",
+   "kind": "longform",
+   "metrics": {
+    "s": 662.03,
+    "completion_tokens": 16384,
+    "prompt_tokens": 134,
+    "tok_s": 24.7
+   },
+   "checks": {
+    "length": false,
+    "words": 0
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "tools-character-video",
+   "kind": "tools",
+   "metrics": {
+    "s": 32.94,
+    "completion_tokens": 769,
+    "tok_s": 23.3
+   },
+   "checks": {
+    "steps_ok": 4,
+    "steps_total": 4
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "tools-layers-upscale",
+   "kind": "tools",
+   "metrics": {
+    "s": 10.31,
+    "completion_tokens": 249,
+    "tok_s": 24.2
+   },
+   "checks": {
+    "steps_ok": 3,
+    "steps_total": 3
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "tools-first-last",
+   "kind": "tools",
+   "metrics": {
+    "s": 52.3,
+    "completion_tokens": 1167,
+    "tok_s": 22.3
+   },
+   "checks": {
+    "steps_ok": 2,
+    "steps_total": 2
+   },
+   "error": null
+  }
+ ]
+}

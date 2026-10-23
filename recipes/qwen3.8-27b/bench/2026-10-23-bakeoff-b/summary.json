@@ -1,0 +1,80 @@
+{
+ "summary": {
+  "label": "bakeoff-b",
+  "model": "qwen3.8-27b",
+  "checks": "10/10",
+  "tool_steps": "0/0",
+  "median_tok_s": 25.3,
+  "errors": 0
+ },
+ "rows": [
+  {
+   "run": 0,
+   "task": "prompts-beats",
+   "kind": "prompts",
+   "metrics": {
+    "s": 131.43,
+    "completion_tokens": 3330,
+    "prompt_tokens": 241,
+    "tok_s": 25.3
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "flux_length": true,
+    "ltx_silent": true
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "longform-light",
+   "kind": "longform",
+   "metrics": {
+    "s": 99.35,
+    "completion_tokens": 1842,
+    "prompt_tokens": 98,
+    "tok_s": 18.5
+   },
+   "checks": {
+    "length": true,
+    "words": 1429
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "prompts-beats",
+   "kind": "prompts",
+   "metrics": {
+    "s": 127.38,
+    "completion_tokens": 3265,
+    "prompt_tokens": 241,
+    "tok_s": 25.6
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "flux_length": true,
+    "ltx_silent": true
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "longform-light",
+   "kind": "longform",
+   "metrics": {
+    "s": 112.0,
+    "completion_tokens": 2073,
+    "prompt_tokens": 98,
+    "tok_s": 18.5
+   },
+   "checks": {
+    "length": true,
+    "words": 1592
+   },
+   "error": null
+  }
+ ]
+}

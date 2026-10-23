@@ -35,7 +35,15 @@ def test_rejects_public_port_and_unpinned_image(tmp_path):
 def test_rejects_mode_over_memory(tmp_path):
     root = _copy(tmp_path)
     p = root / "config/modes.yaml"
-    p.write_text(p.read_text().replace('engines: ["qwen3.8-27b:vllm", "comfyui:comfy"]',
-                                       'engines: ["qwen3.8-27b:vllm", "comfyui:comfy", "qwen3-0.6b:vllm"]'))
+    p.write_text(p.read_text().replace('"comfyui:comfy"]', '"comfyui:comfy", "qwen3-0.6b:vllm"]'))
     with pytest.raises(cfgmod.ConfigError, match="limit 115"):
         cfgmod.load(root)
+
+
+def test_why_keeps_the_root_cause_ahead_of_the_tail():
+    from karspark.engines import _why
+    log = "\n".join(["(EngineCore pid=1) ERROR [core.py:9] ValueError: draft model needs 9 GiB"] +
+                    [f"noise {i}" for i in range(300)] + ["RuntimeError: Engine core initialization failed"])
+    out = _why(log)
+    assert out.startswith("causes: ValueError: draft model needs 9 GiB | RuntimeError: Engine core")
+    assert out.endswith("initialization failed")

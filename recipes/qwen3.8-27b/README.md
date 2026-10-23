@@ -5,19 +5,21 @@
 | Purpose | the always-on LLM in mode `creative`: plans stories and shots, writes FLUX/LTX prompts, drives the karspark MCP tools, runs next to ComfyUI |
 | Weights | `unsloth/Qwen3.8-27B-NVFP4` @ `f0b7c9e722f5565102fff8481c99e4d86ae099c7` → `~/models/llm/qwen3.8-27b-nvfp4` (23.4 GB) |
 | Fetch | `scripts/fetch-model.sh unsloth/Qwen3.8-27B-NVFP4 f0b7c9e722f5565102fff8481c99e4d86ae099c7 llm/qwen3.8-27b-nvfp4` |
-| Why this model | EQ-Bench Creative Writing v3: 1671 (Muse-Glimmer-30B 1798, gemma-4-31B 1368); Longform 53.3; stronger on agentic/tool-calling benchmarks than Glimmer, mature vLLM support, built-in MTP. Glimmer is the bake-off challenger |
+| Why this model | EQ-Bench Creative Writing v3: 1671 (Muse-Glimmer-30B 1798, gemma-4-31B 1368); Longform 53.3; stronger on agentic/tool-calling benchmarks than Glimmer, mature vLLM support, built-in MTP. Won the 2026-10-23 bake-off against Glimmer on tool calls |
 
 ## Recipes
 
 | id | engine | memory | notes |
 |---|---|---|---|
-| `qwen3.8-27b:vllm` (model `qwen3.8-27b`, mode `creative`, port 10030) | [vllm-salient](../../engines/vllm-salient/README.md) image (to confirm in phase 0) | 0.25 util ≈ 30 GiB, 40g cap | **draft**: MTP 3 tokens, FP8 KV, prefix caching, `qwen3_xml` tools, `qwen3` reasoning, 128K ctx, 4 sequences |
+| `qwen3.8-27b:vllm` (model `qwen3.8-27b`, mode `creative`, port 10030) | [vllm-salient](../../engines/vllm-salient/README.md) image (confirmed: loads as Qwen3-VL, so it has vision) | 0.30 util ≈ 36 GiB, 44g cap (0.25 left too little KV) | **deployed**, 249 s cold: MTP 3 tokens, FP8 KV, prefix caching, `qwen3_xml` tools, `qwen3` reasoning, 128K ctx, 4 sequences |
 
-## Phase 0 (needs the GPU, so it waits for the owner's go)
+## Bake-off (2026-10-23, `bench/2026-10-23-bakeoff{,-b}/`)
 
-- Confirm the image serves it (or pin a stock vLLM digest), then measure load time, memory and tok/s with
-  ComfyUI busy next to it. Community numbers on Spark: 22–34 tok/s single stream (NVFP4 + MTP).
-- Bake off against [`muse-glimmer-30b`](../muse-glimmer-30b/README.md) (NVFP4 + DFlash drafter, downloaded) with
-  `scripts/bakeoff.sh` ([bench/planner](../../bench/planner/README.md)) on our tasks: FLUX/LTX
-  prompts from a story beat, story planning and long-form writing, multi-turn karspark MCP tool calls, and
-  speed while ComfyUI runs. The winner gets the `creative` mode's `text` slot.
+Tool steps **18/18**, 30 s shot plan valid in 65 s, median 23.8 tok/s next to an idle ComfyUI. It won on tool
+reliability; Glimmer writes better prose and is faster (full table in
+[muse-glimmer-30b](../muse-glimmer-30b/README.md)).
+
+**Thinking.** It thinks by default and the reasoning counts toward `max_tokens`. With thinking on, a
+long-form chapter spent 53–65K characters of reasoning and wrote nothing in 11–13 min. With
+`chat_template_kwargs: {enable_thinking: false}` (`reasoning_effort="none"`) it wrote 1429–1592 words in
+about 100 s. Core r8 fails such a job clearly instead of returning empty text.

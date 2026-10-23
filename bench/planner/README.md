@@ -1,7 +1,7 @@
 # Planner bake-off
 
 Picks the `creative` mode's LLM (`qwen3.8-27b` vs `muse-glimmer-30b`) on the planner's real jobs, through
-karspark like any client. `bakeoff.py` is stdlib only and runs in `karspark/bench:2`.
+karspark like any client. `bakeoff.py` is stdlib only and runs in `karspark/bench:3`.
 
 | task | kind | auto-checked |
 |---|---|---|
@@ -30,3 +30,8 @@ passed, median tok/s, errors; one JSON per task and run with the full output).
 **Deciding.** Tool steps must be near-perfect: the planner exists to drive the tools. Between models that
 both drive them reliably, prose and prompt quality from the side-by-side read decides, then speed while
 ComfyUI is busy.
+
+## Result (2026-10-23)
+
+`qwen3.8-27b` stays in `creative`: tool steps 18/18 vs Glimmer's 12/18. Glimmer was better at prose and
+faster (29 vs 24 tok/s). Numbers are in both recipe READMEs, and raw outputs are in `recipes/<model>/bench/`.

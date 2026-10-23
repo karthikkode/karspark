@@ -25,6 +25,7 @@ async def served(tmp_path, monkeypatch):
     runner = FakeRunner()
     comfy = FakeComfy(tmp_path, steps=3)
     handlers = {"qwen3.8-flash:vllm-salient": FakeText("flash"), "qwen3.8-27b:vllm": FakeText("planner"),
+                "muse-glimmer-30b:vllm-dflash": FakeText("planner"),
                 "qwen3-0.6b:vllm": FakeText("tiny"), "comfyui:comfy": comfy}
     k = Karspark(REPO, tmp_path, "x" * 40, runner=runner, http=httpx.AsyncClient(transport=transport(cfg, handlers, runner)),
                  clock=Clock(), background=False, tick_s=0.01, mem_free=lambda: 1000, poll_s=0.01)

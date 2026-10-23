@@ -1,4 +1,4 @@
-# muse-glimmer-30b (creative-mode planner, challenger)
+# muse-glimmer-30b (planner challenger, lost the bake-off; in no mode)
 
 | | |
 |---|---|
@@ -12,7 +12,7 @@
 
 | id | engine | memory | notes |
 |---|---|---|---|
-| `muse-glimmer-30b:vllm-dflash` (model `muse-glimmer-30b`, port 10031, **no mode yet**) | [vllm-salient](../../engines/vllm-salient/README.md) image (vLLM 0.32.0rc1 nightly) | 0.30 util ≈ 36 GiB, 44g cap; creative with it = 111 GiB | **draft**: DFlash drafter with 15 speculative tokens, FP8 KV, prefix caching, chunked prefill, `muse_glimmer` tool and reasoning parsers, 128K ctx, 4 sequences |
+| `muse-glimmer-30b:vllm-dflash` (model `muse-glimmer-30b`, port 10031, **no mode yet**) | [vllm-salient](../../engines/vllm-salient/README.md) image (vLLM 0.32.0rc1 nightly) | 0.30 util ≈ 36 GiB, 44g cap; creative with it = 111 GiB | **benched, in no mode**: DFlash drafter with 15 speculative tokens, FP8 KV, prefix caching, chunked prefill, `muse_glimmer` tool and reasoning parsers, 128K ctx, 4 sequences |
 
 Checked in the image without a GPU (2026-10-23): `MuseGlimmerForConditionalGeneration` and the assistant
 (`MuseGlimmerAssistantModel` → `DFlashQwen3ForCausalLM`) are registered, both `muse_glimmer` parsers exist,
@@ -26,11 +26,25 @@ if memory is tight.
 **Sampling.** The card's quality settings are `temperature=1.0`, `top_p=0.95`, `top_k=64`, thinking on, high
 reasoning effort. vLLM applies the shipped `generation_config.json` by default.
 
-## Phase 0 (needs the GPU, so it waits for the owner's go)
+## Bake-off (2026-10-23, `bench/2026-10-23-bakeoff/`)
 
-1. Put it in `creative` instead of `qwen3.8-27b:vllm` (`config/modes.yaml`), `scripts/deploy.sh`, and switch
-   to creative with the owner key.
-2. Measure load time, memory (`/v1/status`) and tok/s, then `scripts/bakeoff.sh muse-glimmer-30b`, once
-   with ComfyUI idle and once while a video job runs.
-3. Compare with the `qwen3.8-27b` results (see `bench/planner/README.md`), keep the winner in `creative`,
-   and record the numbers here and in the registry.
+Ran in `creative` next to an idle ComfyUI. Load 273 s, 30.5 GiB actual, 393K tokens of KV.
+
+| | Glimmer | Qwen3.8-27B |
+|---|---|---|
+| tool steps (the planner's main job) | **12/18**: in both runs it made a second keyframe instead of animating the first (`tools-character-video` step 2) | **18/18** |
+| other checks | 20/20 | 14/18 (thinking ate the whole budget on longform; fixed in core r8) |
+| FLUX/LTX prompts from beats | 65–75 s, 42–46 tok/s | 127–200 s |
+| 30 s shot plan | 57–59 s | 65 s |
+| long-form chapter, full reasoning | 1353–1820 words in 155–210 s | 0 words (all reasoning) |
+| long-form, low reasoning | 1628–2013 words, 17.5 tok/s | 1429–1592 words, 18.5 tok/s (thinking off) |
+| median tok/s | 29.1 | 23.8 |
+
+Glimmer writes better prose (specific and grounded, fewer clichés) and is faster. It lost because a planner
+that picks the wrong tool wastes GPU jobs, and its miss was the same in both runs. The `busy` variant (next to a
+running video job) was skipped: the box had powered off under sustained load earlier that day.
+Reconsider it if a later Glimmer release, or a stricter system prompt, fixes tool choice.
+
+## Bring it back
+Put it in `creative` instead of `qwen3.8-27b:vllm` (`config/modes.yaml`), run `scripts/deploy.sh`, switch
+to creative, then run `scripts/bakeoff.sh muse-glimmer-30b <label>`.

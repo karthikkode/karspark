@@ -1,0 +1,36 @@
+{
+ "run": 1,
+ "task": "tools-first-last",
+ "kind": "tools",
+ "metrics": {
+  "s": 61.21,
+  "completion_tokens": 1779,
+  "tok_s": 29.1
+ },
+ "checks": {
+  "steps_ok": 2,
+  "steps_total": 2
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "generate_video",
+    "ok": true,
+    "got": [
+     [
+      "generate_video",
+      "{\"prompt\": \"Seamless cinematic transition from dawn to dusk, sky and landscape gradually shift from warm golden sunrise light to deep blue twilight, soft clouds drift slowly, gentle natural light change, smooth morphing, calm atmospheric, no text\", \"first_frame\": \"file_dawn\", \"last_frame\": \"file_dusk\", \"duration\": 8.0, \"size\": \"1280x720\", \"audio\": \"sfx\"}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": "final",
+    "ok": true,
+    "content": "Your dawn → dusk transition video is ready.\n\n• Duration: 8 s\n• Size: 1280×720\n• Audio: soft wind SFX\n• First frame: file_dawn\n• Last frame: file_dusk\n\nFile: `file_tr01`\nURL: /v1/files/file_tr01/content\n\nJob id: job_vid2 — state succeeded"
+   }
+  ]
+ }
+}

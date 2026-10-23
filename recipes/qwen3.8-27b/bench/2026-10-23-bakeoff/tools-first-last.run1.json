@@ -1,0 +1,36 @@
+{
+ "run": 1,
+ "task": "tools-first-last",
+ "kind": "tools",
+ "metrics": {
+  "s": 52.3,
+  "completion_tokens": 1167,
+  "tok_s": 22.3
+ },
+ "checks": {
+  "steps_ok": 2,
+  "steps_total": 2
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "generate_video",
+    "ok": true,
+    "got": [
+     [
+      "generate_video",
+      "{\"prompt\": \"Cinematic time-of-day transition from dawn to dusk. The scene begins in soft pink and gold morning light with the sun rising over a gentle horizon, drifting mist and a few slow clouds; the light gradually shifts through warm midday tones, then to a deep orange sunset glow, and finally settles into blue twilight with the first stars. Smooth, slow camera drift; natural, dreamy atmosphere.\", \"first_frame\": \"file_dawn\", \"last_frame\": \"file_dusk\", \"duration\": 8, \"size\": \"1280x720\", \"audio\": \"sfx\"}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": "final",
+    "ok": true,
+    "content": "\n\nDone — 8-second dawn-to-dusk transition video at 1280x720 with soft wind ambience (SFX only, no music):\n\n- **File:** `file_tr01` — /v1/files/file_tr01/content (video/mp4)\n\nThe shot morphs from the dawn frame to the dusk frame with a slow drift: pink-gold sunrise light shifting through warm midday tones into orange sunset, then blue twilight with early stars."
+   }
+  ]
+ }
+}

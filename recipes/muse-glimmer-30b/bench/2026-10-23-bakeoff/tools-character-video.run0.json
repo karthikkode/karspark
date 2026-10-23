@@ -1,0 +1,43 @@
+{
+ "run": 0,
+ "task": "tools-character-video",
+ "kind": "tools",
+ "metrics": {
+  "s": 34.35,
+  "completion_tokens": 1087,
+  "tok_s": 31.6
+ },
+ "checks": {
+  "steps_ok": 1,
+  "steps_total": 4
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "generate_image",
+    "ok": true,
+    "got": [
+     [
+      "generate_image",
+      "{\"prompt\": \"character from reference standing on a rooftop at night, neon rain falling, city skyline with neon signs glowing in background, wet rooftop surface reflecting neon lights, dramatic cinematic lighting, character facing slightly away from camera, detailed realistic style\", \"size\": \"1024x1024\", \"reference_images\": [\"file_char01\"]}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": 1,
+    "want": "generate_video",
+    "ok": false,
+    "got": [
+     [
+      "generate_image",
+      "{\"prompt\": \"same character from reference standing on a rooftop at night, neon rain falling, city skyline with neon signs glowing, wet rooftop reflecting neon lights, character now facing directly toward camera, confident expression, dramatic cinematic lighting, detailed realistic style\", \"size\": \"1024x1024\", \"reference_images\": [\"file_char01\"]}"
+     ]
+    ],
+    "content": ""
+   }
+  ]
+ }
+}

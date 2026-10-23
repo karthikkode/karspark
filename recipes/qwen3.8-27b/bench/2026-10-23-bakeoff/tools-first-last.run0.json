@@ -1,0 +1,36 @@
+{
+ "run": 0,
+ "task": "tools-first-last",
+ "kind": "tools",
+ "metrics": {
+  "s": 27.57,
+  "completion_tokens": 655,
+  "tok_s": 23.8
+ },
+ "checks": {
+  "steps_ok": 2,
+  "steps_total": 2
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "generate_video",
+    "ok": true,
+    "got": [
+     [
+      "generate_video",
+      "{\"first_frame\": \"file_dawn\", \"last_frame\": \"file_dusk\", \"duration\": 8, \"size\": \"1280x720\", \"audio\": \"sfx\", \"prompt\": \"Cinematic time-lapse transition from dawn to dusk: the sun slowly crosses the sky, light shifts from soft golden morning to warm orange sunset, clouds drift, subtle gentle wind stirs the landscape, smooth seamless evolution between the two scenes.\"}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": "final",
+    "ok": true,
+    "content": "\n\nDone! Your 8-second dawn-to-dusk transition video is ready at **1280×720** with soft wind sound effects:\n\n🎬 **file_tr01** — /v1/files/file_tr01/content\n\nLet me know if you'd like a different seed, pacing, or style tweaks."
+   }
+  ]
+ }
+}

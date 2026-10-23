@@ -21,8 +21,8 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
-def chat(base, model, messages, tools=None, max_tokens=8192, timeout=1800):
-    body = {"model": model, "messages": messages, "max_tokens": max_tokens}
+def chat(base, model, messages, tools=None, max_tokens=8192, timeout=1800, extra=None):
+    body = {"model": model, "messages": messages, "max_tokens": max_tokens, **(extra or {})}
     if tools:
         body["tools"] = tools
     req = urllib.request.Request(f"{base}/v1/chat/completions", data=json.dumps(body).encode(),
@@ -49,6 +49,7 @@ def parse_json(text):
     return None
 
 
+NEGATED = re.compile(r"\b(no|without|never|not)\s+(any\s+)?[\w-]+(\s*(,|or|and|nor)\s*(no\s+)?[\w-]+)*", re.I)
 FORBIDDEN_AUDIO = re.compile(r"\b(music|soundtrack|score|singing|song|voice[- ]?over|narrat\w*|dialogue|speaks?|says)\b", re.I)
 
 
@@ -60,7 +61,8 @@ def task_prompts(base, model, t):
     if checks["json"]:
         checks["fields"] = all(isinstance(x, dict) and x.get("flux") and x.get("ltx") for x in out)
         checks["flux_length"] = all(30 <= len(str(x.get("flux", "")).split()) <= 250 for x in out)
-        checks["ltx_silent"] = not any(FORBIDDEN_AUDIO.search(str(x.get("ltx", ""))) for x in out)
+        # "no music, no speech" is the right instruction; only un-negated mentions count
+        checks["ltx_silent"] = not any(FORBIDDEN_AUDIO.search(NEGATED.sub("", str(x.get("ltx", "")))) for x in out)
     return msg, m, checks
 
 
@@ -81,7 +83,7 @@ def task_plan(base, model, t):
 
 def task_longform(base, model, t):
     msgs = [{"role": "system", "content": t["system"]}, {"role": "user", "content": t["user"]}]
-    msg, m = chat(base, model, msgs, max_tokens=16384)
+    msg, m = chat(base, model, msgs, max_tokens=16384, extra=t.get("extra"))
     words = len((msg.get("content") or "").split())
     return msg, m, {"length": t["min_words"] <= words <= t["max_words"], "words": words}
 
@@ -148,6 +150,7 @@ def main():
     ap.add_argument("model")
     ap.add_argument("label")
     ap.add_argument("--runs", type=int, default=2)
+    ap.add_argument("--only", default="", help="comma-separated task ids")
     a = ap.parse_args()
     spec = json.load(open(os.path.join(HERE, "tasks.json")))
     out_dir = os.path.join("results", a.label)
@@ -155,6 +158,8 @@ def main():
     rows = []
     for run in range(a.runs):
         for t in spec["tasks"]:
+            if a.only and t["id"] not in a.only.split(","):
+                continue
             try:
                 if t["kind"] == "tools":
                     out, m, checks = task_tools(a.base, a.model, t, spec["tools"])

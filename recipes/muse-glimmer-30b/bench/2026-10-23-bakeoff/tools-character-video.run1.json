@@ -1,0 +1,43 @@
+{
+ "run": 1,
+ "task": "tools-character-video",
+ "kind": "tools",
+ "metrics": {
+  "s": 43.06,
+  "completion_tokens": 1235,
+  "tok_s": 28.7
+ },
+ "checks": {
+  "steps_ok": 1,
+  "steps_total": 4
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "generate_image",
+    "ok": true,
+    "got": [
+     [
+      "generate_image",
+      "{\"prompt\": \"Character from the reference sheet standing on a rooftop at night in neon rain, city skyline background, wet pavement reflecting neon lights, cinematic dramatic lighting, full body shot, detailed, consistent with character design\", \"size\": \"1024x1536\", \"reference_images\": [\"file_char01\"]}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": 1,
+    "want": "generate_video",
+    "ok": false,
+    "got": [
+     [
+      "generate_image",
+      "{\"prompt\": \"Character from the reference sheet standing on a rooftop at night in neon rain, city skyline background, wet pavement reflecting neon lights, now facing directly toward camera, head-on view, full body shot, same lighting and style as before, consistent character design\", \"size\": \"1024x1536\", \"reference_images\": [\"file_char01\"]}"
+     ]
+    ],
+    "content": ""
+   }
+  ]
+ }
+}

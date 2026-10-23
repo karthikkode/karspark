@@ -1,0 +1,48 @@
+{
+ "run": 1,
+ "task": "tools-layers-upscale",
+ "kind": "tools",
+ "metrics": {
+  "s": 30.05,
+  "completion_tokens": 997,
+  "tok_s": 33.2
+ },
+ "checks": {
+  "steps_ok": 3,
+  "steps_total": 3
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "split_layers",
+    "ok": true,
+    "got": [
+     [
+      "split_layers",
+      "{\"image\": \"file_scene07\", \"layers\": 3}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": 1,
+    "want": "upscale_image",
+    "ok": true,
+    "got": [
+     [
+      "upscale_image",
+      "{\"image\": \"file_bg\", \"model\": \"seedvr2-7b\", \"scale\": 2.0}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": "final",
+    "ok": true,
+    "content": "Split complete for `file_scene07` into 3 parallax layers:\n\n* Background layer: `file_bg` → upscaled 2× with seedvr2-7b → `file_bg2x`\n  - `/v1/files/file_bg2x/content`\n* Midground layer: `file_mid`\n  - `/v1/files/file_mid/content`\n* Foreground layer: `file_fg`\n  - `/v1/files/file_fg/content`\n\nJobs: split `job_lay1` succeeded, upscale `job_up1` succeeded."
+   }
+  ]
+ }
+}

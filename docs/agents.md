@@ -71,7 +71,7 @@ Measured on the box where a number is given; the rest is measured in phase 0 and
 | operation | engine | time |
 |---|---|---|
 | text, Flash-Next | coding mode | 70 tok/s one stream, ~100 tok/s total under load (6 concurrent streams) |
-| text, planner | creative mode | short answers in ~3 s; tok/s from the bake-off (community: 22–38) |
+| text, planner | creative mode | Qwen3.8-27B: ~24 tok/s; a 30 s shot plan ~65 s; prompts for 4 beats ~130 s with thinking |
 | switch coding → creative | | ~4.5 min (262 s measured: Flash-Next out, planner 249 s, ComfyUI 10 s) |
 | switch creative → coding | | ~4.5 min (266 s measured) |
 | FLUX.2 image, 12 steps, 1280x720 | ComfyUI | 29 s warm; ~65 s when FLUX must load first; ~100 s with a reference image after a swap |

@@ -210,8 +210,7 @@ class EngineManager:
                 self.log.engine_event(r.id, "loaded", load_s=e.load_s)
                 return
             if not await self.runner.running(r):
-                tail = await self.runner.logs(r)
-                self._set(e, FAILED, "exited while loading: " + tail[-1500:])
+                self._set(e, FAILED, "exited while loading: " + _why(await self.runner.logs(r, lines=400)))
                 raise EngineError(e.error)
             await asyncio.sleep(self.poll_s)
         tail = await self.runner.logs(r)
@@ -233,6 +232,17 @@ class EngineManager:
 
     def view(self):
         return [e.view() for e in self.engines.values()]
+
+
+def _why(log: str) -> str:
+    """The root cause, not just the last traceback: every distinct error line, then the tail."""
+    causes = []
+    for line in log.splitlines():
+        if ("Error" in line or "Exception" in line) and "Traceback" not in line:
+            text = line.split("] ", 1)[-1].strip()
+            if text and text not in causes:
+                causes.append(text)
+    return ("causes: " + " | ".join(causes[-6:])[:2000] + "\n---\n" if causes else "") + log[-1500:]
 
 
 class EngineError(Exception):

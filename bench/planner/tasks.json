@@ -209,6 +209,20 @@
    "user": "Write the opening chapter (about 1,500-2,000 words) of a story about a cartographer in 1890s Kolkata who discovers that one street on her map moves every night. Give it a strong first line, a clear scene, and end on a turn."
   },
   {
+   "id": "longform-light",
+   "kind": "longform",
+   "min_words": 1200,
+   "max_words": 2600,
+   "system": "You are a novelist. Write vivid, controlled prose with concrete detail and real dialogue.",
+   "user": "Write the opening chapter (about 1,500-2,000 words) of a story about a cartographer in 1890s Kolkata who discovers that one street on her map moves every night. Give it a strong first line, a clear scene, and end on a turn.",
+   "extra": {
+    "chat_template_kwargs": {
+     "enable_thinking": false,
+     "reasoning_strength": "low"
+    }
+   }
+  },
+  {
    "id": "tools-character-video",
    "kind": "tools",
    "system": "You are the planner for a creative studio. You drive the karspark tools to make images and video. Media tools return a job; if it is still running, call wait_job with its id. Pass outputs to later tools by their url or file_id. Videos are silent unless the user asks for sound effects; never add music or voices. Be brief between tool calls.",

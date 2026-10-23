@@ -1,0 +1,48 @@
+{
+ "run": 0,
+ "task": "tools-layers-upscale",
+ "kind": "tools",
+ "metrics": {
+  "s": 29.89,
+  "completion_tokens": 904,
+  "tok_s": 30.2
+ },
+ "checks": {
+  "steps_ok": 3,
+  "steps_total": 3
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "split_layers",
+    "ok": true,
+    "got": [
+     [
+      "split_layers",
+      "{\"image\": \"file_scene07\", \"layers\": 3, \"wait_s\": 10.0}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": 1,
+    "want": "upscale_image",
+    "ok": true,
+    "got": [
+     [
+      "upscale_image",
+      "{\"image\": \"file_bg\", \"model\": \"seedvr2-7b\", \"scale\": 2.0, \"wait_s\": 10.0}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": "final",
+    "ok": true,
+    "content": "Layers created from file_scene07:\n\n* background (layer 1): file_bg\n* midground (layer 2): file_mid\n* foreground (layer 3): file_fg\n\nBackground upscaled 2× with seedvr2-7b:\n\n* file_bg2x → /v1/files/file_bg2x/content"
+   }
+  ]
+ }
+}

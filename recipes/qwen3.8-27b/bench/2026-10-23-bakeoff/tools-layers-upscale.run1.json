@@ -1,0 +1,48 @@
+{
+ "run": 1,
+ "task": "tools-layers-upscale",
+ "kind": "tools",
+ "metrics": {
+  "s": 10.31,
+  "completion_tokens": 249,
+  "tok_s": 24.2
+ },
+ "checks": {
+  "steps_ok": 3,
+  "steps_total": 3
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "split_layers",
+    "ok": true,
+    "got": [
+     [
+      "split_layers",
+      "{\"image\": \"file_scene07\", \"layers\": 3}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": 1,
+    "want": "upscale_image",
+    "ok": true,
+    "got": [
+     [
+      "upscale_image",
+      "{\"image\": \"file_bg\", \"model\": \"seedvr2-7b\", \"scale\": 2}"
+     ]
+    ],
+    "content": "Layers split. Now upscaling the background layer."
+   },
+   {
+    "step": "final",
+    "ok": true,
+    "content": "\n\nDone:\n\n- **Layers** (background → foreground): `file_bg`, `file_mid`, `file_fg`\n- **Upscaled background** 2× with seedvr2-7b: `file_bg2x` (URL: `/v1/files/file_bg2x/content`)\n\nThe mid and foreground layers remain at original size, ready for parallax compositing."
+   }
+  ]
+ }
+}

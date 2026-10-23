@@ -1,0 +1,238 @@
+{
+ "summary": {
+  "label": "bakeoff",
+  "model": "muse-glimmer-30b",
+  "checks": "20/20",
+  "tool_steps": "12/18",
+  "median_tok_s": 29.1,
+  "errors": 0
+ },
+ "rows": [
+  {
+   "run": 0,
+   "task": "prompts-beats",
+   "kind": "prompts",
+   "metrics": {
+    "s": 75.08,
+    "completion_tokens": 3173,
+    "prompt_tokens": 207,
+    "tok_s": 42.3
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "flux_length": true,
+    "ltx_silent": true
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "plan-30s",
+   "kind": "plan",
+   "metrics": {
+    "s": 59.34,
+    "completion_tokens": 1921,
+    "prompt_tokens": 156,
+    "tok_s": 32.4
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "each_le_20s": true,
+    "total_close": true
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "longform-chapter",
+   "kind": "longform",
+   "metrics": {
+    "s": 210.06,
+    "completion_tokens": 3874,
+    "prompt_tokens": 103,
+    "tok_s": 18.4
+   },
+   "checks": {
+    "length": true,
+    "words": 1820
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "longform-light",
+   "kind": "longform",
+   "metrics": {
+    "s": 152.05,
+    "completion_tokens": 2684,
+    "prompt_tokens": 103,
+    "tok_s": 17.7
+   },
+   "checks": {
+    "length": true,
+    "words": 2013
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "tools-character-video",
+   "kind": "tools",
+   "metrics": {
+    "s": 34.35,
+    "completion_tokens": 1087,
+    "tok_s": 31.6
+   },
+   "checks": {
+    "steps_ok": 1,
+    "steps_total": 4
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "tools-layers-upscale",
+   "kind": "tools",
+   "metrics": {
+    "s": 29.89,
+    "completion_tokens": 904,
+    "tok_s": 30.2
+   },
+   "checks": {
+    "steps_ok": 3,
+    "steps_total": 3
+   },
+   "error": null
+  },
+  {
+   "run": 0,
+   "task": "tools-first-last",
+   "kind": "tools",
+   "metrics": {
+    "s": 57.39,
+    "completion_tokens": 1641,
+    "tok_s": 28.6
+   },
+   "checks": {
+    "steps_ok": 2,
+    "steps_total": 2
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "prompts-beats",
+   "kind": "prompts",
+   "metrics": {
+    "s": 65.33,
+    "completion_tokens": 3039,
+    "prompt_tokens": 207,
+    "tok_s": 46.5
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "flux_length": true,
+    "ltx_silent": true
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "plan-30s",
+   "kind": "plan",
+   "metrics": {
+    "s": 56.73,
+    "completion_tokens": 1504,
+    "prompt_tokens": 156,
+    "tok_s": 26.5
+   },
+   "checks": {
+    "json": true,
+    "fields": true,
+    "each_le_20s": true,
+    "total_close": true
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "longform-chapter",
+   "kind": "longform",
+   "metrics": {
+    "s": 154.51,
+    "completion_tokens": 2864,
+    "prompt_tokens": 103,
+    "tok_s": 18.5
+   },
+   "checks": {
+    "length": true,
+    "words": 1353
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "longform-light",
+   "kind": "longform",
+   "metrics": {
+    "s": 134.12,
+    "completion_tokens": 2322,
+    "prompt_tokens": 103,
+    "tok_s": 17.3
+   },
+   "checks": {
+    "length": true,
+    "words": 1628
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "tools-character-video",
+   "kind": "tools",
+   "metrics": {
+    "s": 43.06,
+    "completion_tokens": 1235,
+    "tok_s": 28.7
+   },
+   "checks": {
+    "steps_ok": 1,
+    "steps_total": 4
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "tools-layers-upscale",
+   "kind": "tools",
+   "metrics": {
+    "s": 30.05,
+    "completion_tokens": 997,
+    "tok_s": 33.2
+   },
+   "checks": {
+    "steps_ok": 3,
+    "steps_total": 3
+   },
+   "error": null
+  },
+  {
+   "run": 1,
+   "task": "tools-first-last",
+   "kind": "tools",
+   "metrics": {
+    "s": 61.21,
+    "completion_tokens": 1779,
+    "tok_s": 29.1
+   },
+   "checks": {
+    "steps_ok": 2,
+    "steps_total": 2
+   },
+   "error": null
+  }
+ ]
+}

@@ -1,0 +1,60 @@
+{
+ "run": 1,
+ "task": "tools-character-video",
+ "kind": "tools",
+ "metrics": {
+  "s": 32.94,
+  "completion_tokens": 769,
+  "tok_s": 23.3
+ },
+ "checks": {
+  "steps_ok": 4,
+  "steps_total": 4
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "generate_image",
+    "ok": true,
+    "got": [
+     [
+      "generate_image",
+      "{\"prompt\": \"Cinematic keyframe, full-body shot of the character from the reference sheet standing on a city rooftop at night in neon rain, wet reflective surfaces, glowing pink and cyan neon city lights in background, rain streaks catching neon glow, dramatic rim lighting, dark moody atmosphere, detailed, photorealistic\", \"size\": \"1024x1536\", \"reference_images\": [\"file_char01\"]}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": 1,
+    "want": "generate_video",
+    "ok": true,
+    "got": [
+     [
+      "generate_video",
+      "{\"prompt\": \"The character slowly turns from her side profile toward the camera, smooth cinematic camera movement, neon rain continuing to fall, wet rooftop reflections shimmering, subtle cloth and hair movement in the rain\", \"first_frame\": \"file_kf01\", \"duration\": 5, \"size\": \"1024x1536\"}"
+     ]
+    ],
+    "content": "Keyframe ready. Now animating the turn."
+   },
+   {
+    "step": 2,
+    "want": "wait_job",
+    "ok": true,
+    "got": [
+     [
+      "wait_job",
+      "{\"job_id\": \"job_vid1\", \"timeout_s\": 50}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": "final",
+    "ok": true,
+    "content": "\n\nDone — both assets are ready:\n\n- **Keyframe** (rooftop, neon rain): [/v1/files/file_kf01/content](/v1/files/file_kf01/content)\n- **5s clip** of her turning toward camera: [/v1/files/file_vid01/content](/v1/files/file_vid01/content)\n\nWant any tweaks — different turn angle, camera push-in, or a longer take?"
+   }
+  ]
+ }
+}

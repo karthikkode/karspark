@@ -1,0 +1,36 @@
+{
+ "run": 0,
+ "task": "tools-first-last",
+ "kind": "tools",
+ "metrics": {
+  "s": 57.39,
+  "completion_tokens": 1641,
+  "tok_s": 28.6
+ },
+ "checks": {
+  "steps_ok": 2,
+  "steps_total": 2
+ },
+ "error": null,
+ "output": {
+  "steps": [
+   {
+    "step": 0,
+    "want": "generate_video",
+    "ok": true,
+    "got": [
+     [
+      "generate_video",
+      "{\"prompt\": \"smooth seamless cinematic transition from dawn to dusk, sky and landscape gradually change from soft morning pink and golden light to deep evening purple and blue twilight, gentle clouds drift slowly, trees sway gently with soft wind, calm atmospheric mood, realistic, high detail, no text\", \"first_frame\": \"file_dawn\", \"last_frame\": \"file_dusk\", \"duration\": 8.0, \"size\": \"1280x720\", \"audio\": \"sfx\"}"
+     ]
+    ],
+    "content": ""
+   },
+   {
+    "step": "final",
+    "ok": true,
+    "content": "Transition video created (8 s, 1280×720) from `file_dawn` → `file_dusk` with soft wind SFX.\n\nVideo file: `file_tr01`\nURL: /v1/files/file_tr01/content\nJob: job_vid2 — succeeded"
+   }
+  ]
+ }
+}
