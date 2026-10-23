@@ -5,6 +5,7 @@ karspark:
     image/flux2-dev-nvfp4
     video/ltx-2.5/diffusion_models
     image/qwen-image-layered-comfy/split_files/diffusion_models
+    image/seedvr2/diffusion_models
   text_encoders: |
     image/flux2-dev-comfy/split_files/text_encoders
     video/ltx-2.5/text_encoders
@@ -13,7 +14,9 @@ karspark:
     image/flux2-dev-comfy/split_files/vae
     video/ltx-2.5/vae
     image/qwen-image-layered-comfy/split_files/vae
+    image/seedvr2/vae
   loras: |
     image/flux2-dev-comfy/split_files/loras
     image/loras
   latent_upscale_models: video/ltx-2.5/latent_upscale_models
+  upscale_models: image/upscale-gan

@@ -4,6 +4,8 @@
   - starts ComfyUI on 127.0.0.1:8188 (inside the container) and waits for it
   - POST /v1/images/generations   OpenAI-style images API (FLUX.2), see workflows.py
   - POST /v1/videos/generations   LTX-2.5 image/text-to-video (karspark extension, same shape)
+  - POST /v1/images/upscale        SeedVR2 / FLUX.2 refine / RealESRGAN-anime (karspark extension)
+  - POST /v1/videos/upscale        SeedVR2 video upscale, keeps audio and fps (karspark extension)
   - everything else (UI, /prompt, /history, /view, /ws) is proxied to ComfyUI unchanged, so the
     gateway's /comfyui/ endpoint serves the full ComfyUI app and native API.
 
@@ -55,10 +57,11 @@ async def wait_comfy(session, proc):
 
 
 # ---------------------------------------------------------------- jobs through ComfyUI's native API
-async def upload_image(session, b64):
+async def upload_image(session, b64, ext="png", content_type="image/png"):
+    """Put a base64 file in ComfyUI's input folder (its upload endpoint takes videos too)."""
     raw = base64.b64decode(b64.split(",", 1)[-1])
     form = aiohttp.FormData()
-    form.add_field("image", raw, filename=f"ref-{uuid.uuid4().hex}.png", content_type="image/png")
+    form.add_field("image", raw, filename=f"in-{uuid.uuid4().hex}.{ext}", content_type=content_type)
     form.add_field("overwrite", "true")
     async with session.post(f"{COMFY}/upload/image", data=form) as r:
         r.raise_for_status()
@@ -136,8 +139,36 @@ async def videos_generations(request):
                               "data": [{"b64_json": base64.b64encode(raw).decode(), "filename": name} for raw, name in vids]})
 
 
+async def images_upscale(request):
+    req = await request.json()
+    session = request.app["session"]
+    seed = int(req["seed"]) if req.get("seed") is not None else random.randint(0, 2**31 - 1)
+    try:
+        image = await upload_image(session, req["image"]) if req.get("image") else None
+        files = await run_graph(session, workflows.build_upscale_image({**req, "seed": seed}, image))
+    except workflows.WorkflowError as e:
+        return openai_error(str(e))
+    return web.json_response({"created": int(time.time()), "seed": seed,
+                              "data": [{"b64_json": base64.b64encode(raw).decode()} for raw, _ in files]})
+
+
+async def videos_upscale(request):
+    req = await request.json()
+    session = request.app["session"]
+    seed = int(req["seed"]) if req.get("seed") is not None else random.randint(0, 2**31 - 1)
+    try:
+        video = await upload_image(session, req["video"], "mp4", "video/mp4") if req.get("video") else None
+        files = await run_graph(session, workflows.build_upscale_video({**req, "seed": seed}, video))
+    except workflows.WorkflowError as e:
+        return openai_error(str(e))
+    vids = [(raw, name) for raw, name in files if name.lower().endswith((".mp4", ".webm", ".mov"))] or files
+    return web.json_response({"created": int(time.time()), "seed": seed,
+                              "data": [{"b64_json": base64.b64encode(raw).decode(), "filename": name} for raw, name in vids]})
+
+
 async def models(request):
-    return web.json_response({"object": "list", "data": [{"id": m, "object": "model", "owned_by": "karspark"} for m in workflows.MODELS]})
+    return web.json_response({"object": "list", "data": [{"id": m, "object": "model", "owned_by": "karspark"}
+                                                     for m in workflows.MODELS + workflows.UPSCALE_MODELS]})
 
 
 async def health(request):
@@ -200,6 +231,8 @@ def main():
     app.router.add_get("/v1/models", models)
     app.router.add_post("/v1/images/generations", images_generations)
     app.router.add_post("/v1/videos/generations", videos_generations)
+    app.router.add_post("/v1/images/upscale", images_upscale)
+    app.router.add_post("/v1/videos/upscale", videos_upscale)
     app.router.add_route("*", "/{tail:.*}", proxy)
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)

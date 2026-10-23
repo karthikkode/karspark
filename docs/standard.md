@@ -53,6 +53,8 @@ docs/registry.md      what is deployed, measured numbers, status
 
 1. **Registry row** in `docs/registry.md` with status `planned` (what, why, expected memory).
 2. **Weights:** `scripts/fetch-model.sh <hf-repo> <40-char-sha> <kind>/<name>`. Always pin the revision.
+   A small `.pth` that is not on Hugging Face (e.g. an ESRGAN from a GitHub release): `scripts/fetch-pth.sh
+   <url> <sha256> <kind>/<name>`. It pins by sha256, stores `.safetensors`, and records the source in `SOURCES`.
 3. **Engine:** if the recipe needs an image we don't have, add `engines/<engine>/README.md` with the
    **digest**, or a Dockerfile for a custom build. Pull or build it on the Spark. Never `docker commit`.
 4. **Recipe:** `recipes/<model>/<recipe>.yaml` plus the README table row. Rules, which `render-config.py`

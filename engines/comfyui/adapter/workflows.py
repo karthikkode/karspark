@@ -6,6 +6,7 @@ Each graph follows the official ComfyUI template that ships in this image (comfy
   flux2-dev           image_flux2_fp8.json            text-to-image, or edit/compose from 1..N reference images
   qwen-image-layered  image_qwen_image_layered.json   image -> RGBA layers (or text -> layers)
   ltx-2.5             video_ltx2_5_{i2v,t2v}.json     two-stage distilled (half res, then 2x latent upscale), with audio
+  seedvr2-*           utility_seedvr2_*_upscale_{image,video}.json   one-step upscaling, images and video
 
 Check graphs offline with engines/comfyui/tools/validate_graphs.py (runs ComfyUI's own validation, no GPU).
 """
@@ -242,4 +243,110 @@ def build_video(req, image, seed):
     audio = g.add("LTXVAudioVAEDecode", samples=g.out(sep, 1), audio_vae=g.out(avae))
     video = g.add("CreateVideo", images=g.out(frames_img), fps=float(fps), audio=g.out(audio), bit_depth=8)
     g.add("SaveVideo", video=g.out(video), filename_prefix="video/ltx", format="auto", **{"format.codec": "auto"})
+    return g.nodes
+
+
+# ---------------------------------------------------------------- upscaling
+# POST /v1/images/upscale and /v1/videos/upscale (adapter endpoints, reached via /upstream/comfyui_auto/...).
+SEEDVR2 = {
+    "seedvr2-7b": "seedvr2_7b_fp16.safetensors",              # best quality (images)
+    "seedvr2-7b-sharp": "seedvr2_7b_sharp_int8_convrot.safetensors",  # more detail; watch faces
+    "seedvr2-3b": "seedvr2_3b_fp16.safetensors",              # faster (video default)
+}
+SEEDVR2_VAE = "seedvr2_ema_vae_fp16.safetensors"
+ESRGAN_ANIME = "RealESRGAN_x4plus_anime_6B.safetensors"
+UPSCALE_MODELS = [*SEEDVR2, "flux2-refine", "esrgan-anime"]
+VIDEO_UPSCALE_MODELS = list(SEEDVR2)
+
+
+def _scale(req, default):
+    s = float(req.get("scale", default))
+    if not 1 < s <= 4:
+        raise WorkflowError("scale must be > 1 and <= 4")
+    return s
+
+
+def _seedvr2(g, images, model, scale, req, temporal_size):
+    """SeedVR2 one-step restoration, as in the official templates: lanczos resize to the target, encode,
+    one euler step at denoise 1, decode, then colour-match to the resized input."""
+    unet = g.add("UNETLoader", unet_name=SEEDVR2[model], weight_dtype="default")
+    vae = g.add("VAELoader", vae_name=SEEDVR2_VAE)
+    resized = g.add("ImageScaleBy", image=images, upscale_method="lanczos", scale_by=scale)
+    pre = g.add("SeedVR2Preprocess", resized_images=g.out(resized))
+    lat = g.add("VAEEncodeTiled", pixels=g.out(pre), vae=g.out(vae), tile_size=512, overlap=128,
+                temporal_size=temporal_size, temporal_overlap=8)
+    cond = g.add("SeedVR2Conditioning", model=g.out(unet), vae_conditioning=g.out(lat))
+    out = g.add("KSampler", model=g.out(unet), seed=int(req.get("seed", 1)), steps=1, cfg=1.0, sampler_name="euler",
+                scheduler="simple", positive=g.out(cond, 0), negative=g.out(cond, 1), latent_image=g.out(lat), denoise=1.0)
+    img = g.add("VAEDecodeTiled", samples=g.out(out), vae=g.out(vae), tile_size=512, overlap=128,
+                temporal_size=temporal_size, temporal_overlap=8)
+    # The templates use "none"; "lab" (the node default) keeps colours closer to the input.
+    return g.add("SeedVR2PostProcessing", images=g.out(img), original_resized_images=g.out(resized),
+                 color_correction_method=req.get("color_correction", "lab"))
+
+
+def build_upscale_image(req, image):
+    """Upscale one image. Models:
+      seedvr2-7b / seedvr2-7b-sharp / seedvr2-3b   one-step diffusion restoration (best general quality)
+      flux2-refine   anime-safe: RealESRGAN-anime to the target size, then FLUX.2 Turbo img2img at low
+                     denoise (default 0.35), so lines, shading and the character stay FLUX.2's own.
+                     Optional "prompt" (describe the image) and "loras" (the character LoRA)
+      esrgan-anime   RealESRGAN x4plus anime 6B, then resized to "scale". Instant, no new detail
+    "scale" defaults to 2 (max 4)."""
+    model = req.get("model", "seedvr2-7b")
+    if not image:
+        raise WorkflowError("image is required")
+    scale = _scale(req, 2)
+    g = Graph()
+    src = g.add("LoadImage", image=image)
+    if model in SEEDVR2:
+        img = _seedvr2(g, g.out(src), model, scale, req, temporal_size=4096)
+    elif model in ("esrgan-anime", "flux2-refine"):
+        gan = g.add("UpscaleModelLoader", model_name=ESRGAN_ANIME)
+        img = g.add("ImageUpscaleWithModel", upscale_model=g.out(gan), image=g.out(src))
+        img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
+        if model == "flux2-refine":
+            img = _flux2_refine(g, img, req)
+    else:
+        raise WorkflowError(f"unknown upscale model {model!r}; use one of: {', '.join(UPSCALE_MODELS)}")
+    g.add("SaveImage", images=g.out(img), filename_prefix="upscale")
+    return g.nodes
+
+
+def _flux2_refine(g, img, req):
+    denoise = float(req.get("denoise", 0.35))
+    if not 0.05 <= denoise <= 0.8:
+        raise WorkflowError("denoise must be 0.05..0.8")
+    unet = g.add("UNETLoader", unet_name=FLUX2["unet"], weight_dtype="default")
+    clip = g.add("CLIPLoader", clip_name=FLUX2["clip"], type="flux2", device="default")
+    vae = g.add("VAELoader", vae_name=FLUX2["vae"])
+    m = g.add("LoraLoaderModelOnly", model=g.out(unet), lora_name=FLUX2["turbo_lora"], strength_model=1.0)
+    m = _loras(g, m, req)
+    cond = g.add("CLIPTextEncode", text=req.get("prompt", ""), clip=g.out(clip))
+    cond = g.add("FluxGuidance", conditioning=g.out(cond), guidance=float(req.get("guidance", 4.0)))
+    size = g.add("GetImageSize", image=g.out(img))
+    lat = g.add("VAEEncode", pixels=g.out(img), vae=g.out(vae))
+    sigmas = g.add("Flux2Scheduler", steps=int(req.get("steps", 8)), width=g.out(size, 0), height=g.out(size, 1))
+    sigmas = g.add("SplitSigmasDenoise", sigmas=g.out(sigmas), denoise=denoise)
+    out = g.add("SamplerCustomAdvanced", noise=g.out(g.add("RandomNoise", noise_seed=int(req.get("seed", 1)))),
+                guider=g.out(g.add("BasicGuider", model=g.out(m), conditioning=g.out(cond))),
+                sampler=g.out(g.add("KSamplerSelect", sampler_name="euler")), sigmas=g.out(sigmas, 1),
+                latent_image=g.out(lat))
+    return g.add("VAEDecode", samples=g.out(out), vae=g.out(vae))
+
+
+def build_upscale_video(req, video):
+    """Upscale a video with SeedVR2 (default seedvr2-3b; seedvr2-7b for hero shots), keeping its audio and
+    frame rate. "scale" defaults to 2. Use it beyond LTX-2.5's own 720p output (e.g. 720p -> 1440p)."""
+    model = req.get("model", "seedvr2-3b")
+    if model not in SEEDVR2:
+        raise WorkflowError(f"unknown video upscale model {model!r}; use one of: {', '.join(VIDEO_UPSCALE_MODELS)}")
+    if not video:
+        raise WorkflowError("video is required")
+    scale = _scale(req, 2)
+    g = Graph()
+    parts = g.add("GetVideoComponents", video=g.out(g.add("LoadVideo", file=video)))
+    img = _seedvr2(g, g.out(parts, 0), model, scale, req, temporal_size=64)
+    v = g.add("CreateVideo", images=g.out(img), fps=g.out(parts, 2), audio=g.out(parts, 1), bit_depth=8)
+    g.add("SaveVideo", video=g.out(v), filename_prefix="video/upscale", format="auto", **{"format.codec": "auto"})
     return g.nodes

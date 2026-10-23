@@ -7,6 +7,7 @@ so it is safe to run while another model owns the Spark.
 """
 import asyncio
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, "/opt/comfyui")
@@ -31,6 +32,8 @@ from PIL import Image  # noqa: E402
 
 for name in ("ref1.png", "ref2.png"):
     Image.new("RGB", (832, 1216), "white").save(f"/tmp/comfy-in/{name}")
+subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=s=640x360:d=1:r=24", "-f", "lavfi",
+                "-i", "sine=d=1", "-shortest", "/tmp/comfy-in/clip.mp4"], check=True)
 
 CASES = [
     ("flux2 text-to-image", "image", {"model": "flux2-dev", "prompt": "a cat", "size": "1024x1536"}, []),
@@ -41,14 +44,22 @@ CASES = [
     ("qwen text->layers", "image", {"model": "qwen-image-layered", "prompt": "a cafe", "size": "640x640"}, []),
     ("ltx-2.5 i2v", "video", {"prompt": "she turns and smiles", "duration": 5}, "ref1.png"),
     ("ltx-2.5 t2v", "video", {"prompt": "a train crossing a bridge at dusk", "size": "1280x704"}, None),
+    ("upscale seedvr2-7b", "upimage", {"model": "seedvr2-7b", "scale": 4}, "ref1.png"),
+    ("upscale seedvr2-7b-sharp", "upimage", {"model": "seedvr2-7b-sharp"}, "ref1.png"),
+    ("upscale flux2-refine", "upimage", {"model": "flux2-refine", "prompt": "anime girl"}, "ref1.png"),
+    ("upscale esrgan-anime", "upimage", {"model": "esrgan-anime", "scale": 4}, "ref1.png"),
+    ("video upscale seedvr2-3b", "upvideo", {}, "clip.mp4"),
+    ("video upscale seedvr2-7b", "upvideo", {"model": "seedvr2-7b", "scale": 1.5}, "clip.mp4"),
 ]
+BUILD = {"image": workflows.build_image, "video": workflows.build_video,
+         "upimage": workflows.build_upscale_image, "upvideo": workflows.build_upscale_video}
 
 
 async def main():
     await nodes.init_extra_nodes(init_custom_nodes=False, init_api_nodes=False)
     bad = 0
     for label, kind, req, inp in CASES:
-        graph = workflows.build_image(req, inp, 1) if kind == "image" else workflows.build_video(req, inp, 1)
+        graph = BUILD[kind](req, inp, 1) if kind in ("image", "video") else BUILD[kind](req, inp)
         ok, err, outputs, node_errors = (await execution.validate_prompt("check", graph, None))[:4]
         print(f"{'OK  ' if ok else 'FAIL'} {label:<24} {len(graph)} nodes")
         if not ok:

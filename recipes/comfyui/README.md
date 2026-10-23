@@ -1,6 +1,6 @@
 # comfyui (images, layers, video)
 
-One container, `karspark/comfyui:0.42.4-r2` ([engine](../../engines/comfyui/README.md)), serves every
+One container, `karspark/comfyui:0.42.4-r3` ([engine](../../engines/comfyui/README.md)), serves every
 diffusion model. Weights are read-only from `~/models` via `extra_model_paths.yaml`. The graphs live in
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
@@ -14,6 +14,8 @@ Status: **ready, not deployed** (Flash-Next owns the GPU). Not yet timed on the 
 | `flux2-dev` | FLUX.2 [dev] NVFP4 (pure). Default: Turbo LoRA v2 at 8 steps. Up to 6 reference images for character consistency | `black-forest-labs/FLUX.2-dev-NVFP4` → `~/models/image/flux2-dev-nvfp4`; Mistral-3 FP4 TE, Turbo LoRA, VAE from `Comfy-Org/flux2-dev` → `~/models/image/flux2-dev-comfy` | `142b87e7`, `ed33133c` |
 | `qwen-image-layered` | splits an image into RGBA layers (input for the parallax pipeline). fp8mixed | `Comfy-Org/Qwen-Image-Layered_ComfyUI` → `~/models/image/qwen-image-layered-comfy`; Qwen2.5-VL 7B fp8 TE from `Comfy-Org/Qwen-Image_ComfyUI` → `~/models/image/qwen-image-te` | `02130716`, `1f12b17b` |
 | `ltx-2.5` | LTX-2.5 22B distilled (int8-convrot), image-to-video or text-to-video, with audio | `Lightricks/LTX-2.5` → `~/models/video/ltx-2.5` (Gemma-4 12B int8 TE, video/audio VAE, 2× latent upscaler) | `49b093a3` |
+| `seedvr2-7b`, `seedvr2-7b-sharp`, `seedvr2-3b` | SeedVR2 one-step upscaler for images and video (7B fp16 = best quality, 7B sharp int8 = more detail, 3B fp16 = faster, video default) | `Comfy-Org/SeedVR2` → `~/models/image/seedvr2` | `df488797` |
+| `esrgan-anime` (also the first step of `flux2-refine`) | RealESRGAN x4plus anime 6B. Instant, adds no detail | official GitHub release v0.2.2.4, converted to safetensors by `scripts/fetch-pth.sh` → `~/models/image/upscale-gan` | sha256 `f872d837…` (.pth) |
 | character LoRAs | for `flux2-dev` | `~/models/image/loras/<name>.safetensors` | ours |
 
 ## API (all through the gateway, one key)
@@ -43,6 +45,22 @@ Status: **ready, not deployed** (Flash-Next owns the GPU). Not yet timed on the 
 // no "image" = text-to-video. size must be a multiple of 64, duration 1..20 s.
 ```
 
+**Upscaling**: render small, then upscale. `POST /upstream/comfyui_auto/v1/images/upscale` → `data[].b64_json`.
+
+```jsonc
+{"model": "seedvr2-7b", "image": "<base64 png>", "scale": 2}            // best general quality (default model)
+{"model": "flux2-refine", "image": "<base64 png>", "scale": 2,          // anime-safe: keeps FLUX.2's lines/faces
+ "prompt": "describe the image", "loras": [{"name": "mychar.safetensors"}], "denoise": 0.35}
+{"model": "esrgan-anime", "image": "<base64 png>", "scale": 4}          // instant preview
+// scale > 1 and <= 4. seedvr2 also takes "color_correction": lab (default) | wavelet | adain | none
+```
+
+`POST /upstream/comfyui_auto/v1/videos/upscale` → an MP4 that keeps the source's audio and fps.
+
+```jsonc
+{"model": "seedvr2-3b", "video": "<base64 mp4>", "scale": 2}            // seedvr2-7b for hero shots
+```
+
 **Full ComfyUI app + native API** (custom graphs, templates): `http://<spark>:8080/comfyui/`.
 
 ## Settings and why
@@ -56,6 +74,13 @@ Status: **ready, not deployed** (Flash-Next owns the GPU). Not yet timed on the 
   then 3 steps at full resolution, CFG 1, euler_ancestral. The first frame is anchored at 0.7, then 1.0.
   The optional prompt enhancer (gemma4 e2b) is not downloaded, so prompts go in as written; write them
   like the template examples (camera, motion, sound).
+
+- **Upscalers**: SeedVR2 settings come from the official templates (one euler step at denoise 1, tiled
+  VAE), except colour correction is `lab` rather than `none`, to keep colours true to the source. SeedVR2
+  learned mostly from real footage and can add texture to flat anime shading, so try it on our anime
+  before trusting it there. `flux2-refine` is the safe path for character art: RealESRGAN-anime to the
+  target size, then FLUX.2 Turbo at denoise 0.35 (about 3 of 8 steps). Video: LTX-2.5 already renders
+  at half size and upscales 2× itself, so SeedVR2 is for going past 720p.
 
 Runs alone, not in a routing set. ComfyUI loads the weights on demand: about 34 GB for FLUX.2, 30 GB for
 Qwen-Image-Layered, and 40 GB for LTX-2.5.
