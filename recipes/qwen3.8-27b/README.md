@@ -17,6 +17,7 @@
 
 - Confirm the image serves it (or pin a stock vLLM digest), then measure load time, memory and tok/s with
   ComfyUI busy next to it. Community numbers on Spark: 22–34 tok/s single stream (NVFP4 + MTP).
-- Bake off against `muse-glimmer-30b` (NVFP4 + DFlash drafter, downloaded next) on our tasks: FLUX/LTX
+- Bake off against [`muse-glimmer-30b`](../muse-glimmer-30b/README.md) (NVFP4 + DFlash drafter, downloaded) with
+  `scripts/bakeoff.sh` ([bench/planner](../../bench/planner/README.md)) on our tasks: FLUX/LTX
   prompts from a story beat, story planning and long-form writing, multi-turn karspark MCP tool calls, and
   speed while ComfyUI runs. The winner gets the `creative` mode's `text` slot.

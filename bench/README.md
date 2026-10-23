@@ -1,12 +1,14 @@
 # Bench
 
-One harness for every recipe, run in a container (`karspark/bench:1`) against karspark (:8080). It executes
+One harness for every recipe, run in a container (`karspark/bench:2`) against karspark (:8080). It executes
 model-written code to grade answers, so it never runs on the host.
 
 - `tonyd2wild/`: the community harness used by the published single-Spark Flash-Next numbers, vendored
   byte-identical at the commit in `UPSTREAM_COMMIT` (Apache-2.0). It has 40 real prompts in 8 categories
   with auto-graded quality, streams to get TTFT and decode tok/s, optionally batches into N concurrent
   streams for total throughput, and adds a long-prefill needle test.
+- `planner/`: the creative-planner bake-off (prompts, shot plans, long-form, multi-turn tool calls). See
+  [planner/README.md](planner/README.md) and `scripts/bakeoff.sh`.
 - `sitecustomize.py` adds the karspark API key to its requests. `run.sh` is the sequence.
 - Caveat inherited from upstream: the `summary` category reads `bench-docs/*`, which upstream doesn't
   publish, so those 5 prompts summarize a placeholder. Compare recipes on the other 35.

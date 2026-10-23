@@ -224,6 +224,8 @@ class Service:
             if r.kind == "media":
                 caps = [c for c in r.capabilities if model in default_model_list(c)]
             modes = k.cfg.mode_of_model(model)
+            if not modes:                   # a recipe kept aside (e.g. a bake-off challenger): not callable
+                continue
             out.append({"id": model, "object": "model", "owned_by": "karspark", "capability": caps, "modes": modes,
                         "loaded": any(k.engines.ready(rid) for rid in rids) and cur in modes,
                         "default_for": [c for c, m in defaults.items() if m == model]})

@@ -28,8 +28,8 @@ prefetch_comfyui() {
 # tag | build context | prefetch fn | build args
 IMAGES=(
   "karspark/hf-cli:2.2.0-xet1.7.0|engines/hf-cli||"
-  "karspark/core:0.1.0-r2|core|prefetch_core|"
-  "karspark/bench:1|bench||"
+  "karspark/core:0.1.0-r3|core|prefetch_core|"
+  "karspark/bench:2|bench||"
   "karspark/comfyui:0.42.4-r4|engines/comfyui|prefetch_comfyui|"
   "karspark/vllm-salient:2026-10-14-77154ca6|engines/vllm-salient/upstream||BASE=vllm/vllm-openai@sha256:a7deff2c216def98c193352aca50fb03a2ee29231355b3033dc3789009f6d23e"
 )

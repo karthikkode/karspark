@@ -1,0 +1,373 @@
+{
+ "tools": [
+  {
+   "type": "function",
+   "function": {
+    "name": "generate_image",
+    "description": "Generate an image with FLUX.2 + Turbo LoRA (12 steps). Up to 6 reference_images (file_id) for characters, outfits or style. size WxH, multiples of 16.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "prompt": {
+       "type": "string"
+      },
+      "size": {
+       "type": "string"
+      },
+      "reference_images": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "seed": {
+       "type": "integer"
+      },
+      "priority": {
+       "type": "integer"
+      },
+      "wait_s": {
+       "type": "number"
+      }
+     },
+     "required": [
+      "prompt"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "split_layers",
+    "description": "Split an image into RGBA layers (background first) with Qwen-Image-Layered, for parallax.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "image": {
+       "type": "string"
+      },
+      "layers": {
+       "type": "integer"
+      },
+      "prompt": {
+       "type": "string"
+      },
+      "wait_s": {
+       "type": "number"
+      }
+     },
+     "required": [
+      "image"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "upscale_image",
+    "description": "Upscale an image. model: seedvr2-7b (default), seedvr2-7b-sharp, seedvr2-3b, flux2-refine (anime-safe), esrgan-anime. scale 1-4.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "image": {
+       "type": "string"
+      },
+      "model": {
+       "type": "string"
+      },
+      "scale": {
+       "type": "number"
+      },
+      "wait_s": {
+       "type": "number"
+      }
+     },
+     "required": [
+      "image"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "generate_video",
+    "description": "Generate a video with LTX-2.5: text-to-video, image-to-video (first_frame), or first-to-last (first_frame + last_frame). size multiple of 64, duration 1-20 s. Silent by default; audio='sfx' adds sound effects only (never music or voices).",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "prompt": {
+       "type": "string"
+      },
+      "first_frame": {
+       "type": "string"
+      },
+      "last_frame": {
+       "type": "string"
+      },
+      "duration": {
+       "type": "number"
+      },
+      "size": {
+       "type": "string"
+      },
+      "audio": {
+       "type": "string",
+       "enum": [
+        "none",
+        "sfx"
+       ]
+      },
+      "seed": {
+       "type": "integer"
+      },
+      "wait_s": {
+       "type": "number"
+      }
+     },
+     "required": [
+      "prompt"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "wait_job",
+    "description": "Wait up to timeout_s (max 50) for a job to finish; returns the job.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "job_id": {
+       "type": "string"
+      },
+      "timeout_s": {
+       "type": "number"
+      }
+     },
+     "required": [
+      "job_id"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "get_job",
+    "description": "Get a job by id.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "job_id": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "job_id"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "status",
+    "description": "What the box is doing now: mode, engines, queue.",
+    "parameters": {
+     "type": "object",
+     "properties": {},
+     "required": []
+    }
+   }
+  }
+ ],
+ "tasks": [
+  {
+   "id": "prompts-beats",
+   "kind": "prompts",
+   "expect_items": 4,
+   "system": "You write prompts for FLUX.2 (still images) and LTX-2.5 (video). Answer with JSON only.",
+   "user": "For each of these 4 story beats, write one FLUX.2 keyframe prompt (40-150 words: subject, composition, lens, light, palette, style) and one LTX-2.5 motion prompt (what moves, camera move, pacing; the clip is silent, so describe no music or speech). Return a JSON array of 4 objects {\"beat\": n, \"flux\": \"...\", \"ltx\": \"...\"}.\n1. A lighthouse keeper finds a glowing fish in her net at dawn.\n2. She carries it up the spiral stairs while the storm builds.\n3. The fish's light floods the lamp room and the beam turns gold.\n4. A lost ship, guided by the gold beam, clears the rocks."
+  },
+  {
+   "id": "plan-30s",
+   "kind": "plan",
+   "total_s": 30,
+   "system": "You plan short films shot by shot for an image-then-video pipeline (FLUX.2 keyframes, LTX-2.5 clips of at most 20 s). Answer with JSON only.",
+   "user": "Plan a 30-second silent short: a paper crane comes alive on a rainy office desk and escapes through the window. Return {\"title\": ..., \"shots\": [{\"id\": 1, \"duration\": seconds, \"keyframe_prompt\": FLUX prompt for the first frame, \"last_frame_prompt\": optional FLUX prompt for the last frame, \"motion_prompt\": LTX prompt}]}. Shot durations must add up to 30."
+  },
+  {
+   "id": "longform-chapter",
+   "kind": "longform",
+   "min_words": 1200,
+   "max_words": 2600,
+   "system": "You are a novelist. Write vivid, controlled prose with concrete detail and real dialogue.",
+   "user": "Write the opening chapter (about 1,500-2,000 words) of a story about a cartographer in 1890s Kolkata who discovers that one street on her map moves every night. Give it a strong first line, a clear scene, and end on a turn."
+  },
+  {
+   "id": "tools-character-video",
+   "kind": "tools",
+   "system": "You are the planner for a creative studio. You drive the karspark tools to make images and video. Media tools return a job; if it is still running, call wait_job with its id. Pass outputs to later tools by their url or file_id. Videos are silent unless the user asks for sound effects; never add music or voices. Be brief between tool calls.",
+   "user": "Using my character sheet file_char01, make a keyframe of her standing on a rooftop at night in neon rain, then animate it into a 5 second clip of her turning toward the camera.",
+   "steps": [
+    {
+     "tool": "generate_image",
+     "args": {
+      "reference_images": [
+       "file_char01"
+      ],
+      "prompt": "~rooftop"
+     },
+     "result": {
+      "object": "job",
+      "id": "job_img1",
+      "kind": "image",
+      "state": "succeeded",
+      "outputs": [
+       {
+        "file_id": "file_kf01",
+        "url": "/v1/files/file_kf01/content",
+        "mime": "image/png"
+       }
+      ]
+     }
+    },
+    {
+     "tool": "generate_video",
+     "args": {
+      "first_frame": "~file_kf01",
+      "duration": 5
+     },
+     "result": {
+      "object": "job",
+      "id": "job_vid1",
+      "kind": "video",
+      "state": "running",
+      "outputs": [],
+      "eta_s": 40
+     }
+    },
+    {
+     "tool": "wait_job",
+     "args": {
+      "job_id": "job_vid1"
+     },
+     "result": {
+      "object": "job",
+      "id": "job_vid1",
+      "kind": "video",
+      "state": "succeeded",
+      "outputs": [
+       {
+        "file_id": "file_vid01",
+        "url": "/v1/files/file_vid01/content",
+        "mime": "video/mp4"
+       }
+      ]
+     }
+    }
+   ],
+   "final_mentions": [
+    "file_vid01"
+   ]
+  },
+  {
+   "id": "tools-layers-upscale",
+   "kind": "tools",
+   "system": "You are the planner for a creative studio. You drive the karspark tools to make images and video. Media tools return a job; if it is still running, call wait_job with its id. Pass outputs to later tools by their url or file_id. Videos are silent unless the user asks for sound effects; never add music or voices. Be brief between tool calls.",
+   "user": "Split file_scene07 into 3 layers for parallax, then upscale only the background layer 2x with seedvr2-7b.",
+   "steps": [
+    {
+     "tool": "split_layers",
+     "args": {
+      "image": "~file_scene07",
+      "layers": 3
+     },
+     "result": {
+      "object": "job",
+      "id": "job_lay1",
+      "kind": "layers",
+      "state": "succeeded",
+      "outputs": [
+       {
+        "file_id": "file_bg",
+        "url": "/v1/files/file_bg/content",
+        "mime": "image/png"
+       },
+       {
+        "file_id": "file_mid",
+        "url": "/v1/files/file_mid/content",
+        "mime": "image/png"
+       },
+       {
+        "file_id": "file_fg",
+        "url": "/v1/files/file_fg/content",
+        "mime": "image/png"
+       }
+      ]
+     }
+    },
+    {
+     "tool": "upscale_image",
+     "args": {
+      "image": "~file_bg",
+      "model": "seedvr2-7b"
+     },
+     "result": {
+      "object": "job",
+      "id": "job_up1",
+      "kind": "upscale_image",
+      "state": "succeeded",
+      "outputs": [
+       {
+        "file_id": "file_bg2x",
+        "url": "/v1/files/file_bg2x/content",
+        "mime": "image/png"
+       }
+      ]
+     }
+    }
+   ],
+   "final_mentions": [
+    "file_bg2x"
+   ]
+  },
+  {
+   "id": "tools-first-last",
+   "kind": "tools",
+   "system": "You are the planner for a creative studio. You drive the karspark tools to make images and video. Media tools return a job; if it is still running, call wait_job with its id. Pass outputs to later tools by their url or file_id. Videos are silent unless the user asks for sound effects; never add music or voices. Be brief between tool calls.",
+   "user": "Make a transition video from file_dawn to file_dusk, 8 seconds, 1280x720, with soft wind sound effects.",
+   "steps": [
+    {
+     "tool": "generate_video",
+     "args": {
+      "first_frame": "~file_dawn",
+      "last_frame": "~file_dusk",
+      "duration": 8,
+      "audio": "sfx"
+     },
+     "result": {
+      "object": "job",
+      "id": "job_vid2",
+      "kind": "video",
+      "state": "succeeded",
+      "outputs": [
+       {
+        "file_id": "file_tr01",
+        "url": "/v1/files/file_tr01/content",
+        "mime": "video/mp4"
+       }
+      ]
+     }
+    }
+   ],
+   "final_mentions": [
+    "file_tr01"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,33 @@
+# Planner challenger: Muse-Glimmer-30B NVFP4 + its DFlash drafter, next to ComfyUI. Not in any mode until the
+# phase-0 bake-off picks it (then it replaces qwen3.8-27b:vllm in `creative`). DRAFT: support for the model,
+# both parsers and DFlash is confirmed in this image (vLLM 0.32.0rc1 nightly 77154ca6); memory, load time and
+# speed are not measured yet. Flags follow the model card's vLLM command (tested on 0.28) plus the DFlash drafter.
+kind: text
+capabilities: [text]
+models: [muse-glimmer-30b]
+served_name: muse-glimmer-30b
+port: 10031
+memory_gib: 36           # 0.30 x 121 GiB: ~24 GB weights (vision encoder BF16) + 4.8 GB drafter + fp8 KV + graphs
+slots: 4
+max_tokens_default: 8192
+load_timeout_s: 1200
+stop_timeout_s: 30
+run: |
+  --gpus all --ipc host --shm-size 16g --memory 44g --memory-swap 44g
+  -p 127.0.0.1:${PORT}:8000
+  -v ${models}/llm/muse-glimmer-30b-nvfp4:/model:ro
+  -v ${models}/llm/muse-glimmer-30b-assistant:/draft:ro
+  -v ${engines}/vllm-planner/cache:/root/.cache
+  -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1
+  -e FLASHINFER_CUDA_ARCH_LIST=12.1a -e CUTE_DSL_ARCH=sm_121a
+  -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+  --entrypoint vllm
+  karspark/vllm-salient:2026-10-14-77154ca6
+  serve /model --host 0.0.0.0 --port 8000
+  --served-model-name muse-glimmer-30b
+  --max-model-len 131072 --max-num-seqs 4
+  --gpu-memory-utilization 0.30
+  --kv-cache-dtype fp8 --enable-prefix-caching --enable-chunked-prefill
+  --reasoning-parser muse_glimmer
+  --enable-auto-tool-choice --tool-call-parser muse_glimmer
+  --speculative-config '{"method": "dflash", "model": "/draft", "num_speculative_tokens": 15}'
