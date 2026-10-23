@@ -1,6 +1,6 @@
 # Engine: comfyui
 
-Image `karspark/comfyui:0.42.4`, built by `scripts/build-images.sh` from the [Dockerfile](Dockerfile):
+Image `karspark/comfyui:0.42.4-r2`, built by `scripts/build-images.sh` from the [Dockerfile](Dockerfile):
 
 - `python:3.12-slim` (pinned digest) + torch **2.13.0+cu130**, torchvision 0.28.0, torchaudio 2.11.0,
   comfy-kitchen 0.2.39 (built 2026-10-22, 6.9 GB; full set in `/opt/pip-freeze.txt` inside the image)
@@ -8,8 +8,15 @@ Image `karspark/comfyui:0.42.4`, built by `scripts/build-images.sh` from the [Do
   and checked to be that commit
 - `extra_model_paths.yaml`: maps ComfyUI's model folders to `~/models` (read-only)
 - `adapter/`: our process in front of ComfyUI. It provides OpenAI-style `/v1/images/generations`
-  (FLUX.2) and `/v1/videos/generations` (LTX-2.5), and proxies everything else (UI, `/prompt`, `/ws`)
-  so the gateway's `/comfyui/` serves the real app
+  (FLUX.2, Qwen-Image-Layered) and `/v1/videos/generations` (LTX-2.5), and proxies everything else
+  (UI, `/prompt`, `/ws`) so the gateway's `/comfyui/` serves the real app. The graphs are in
+  `adapter/workflows.py`, flattened from the official templates in the image
+  (`comfyui_workflow_templates_json/templates/`)
+- `tools/validate_graphs.py`: ComfyUI's own validator over every graph, on CPU with no weights loaded.
+  Run it with `scripts/validate-comfy-graphs.sh`, which is safe while another model owns the GPU
+
+**Changing `adapter/` or `extra_model_paths.yaml` means a new image:** bump the `-rN` suffix in
+`scripts/build-images.sh` and `recipes/comfyui/comfy.yaml`, since the build skips tags that already exist.
 
 GB10 flags (see docs/lessons.md): `--disable-pinned-memory --reserve-vram 4`. Never `--highvram`/`--gpu-only`.
 Outputs go to `/tmp` inside the container and are returned in the response, never written to the host.

@@ -20,5 +20,5 @@ models:
       -v ${models}:/models:ro
       -e HF_HUB_OFFLINE=1
       -e 'COMFY_ARGS=--disable-pinned-memory --reserve-vram 4'
-      karspark/comfyui:0.42.4
+      karspark/comfyui:0.42.4-r2
     cmdStop: docker stop -t 30 ks-comfyui

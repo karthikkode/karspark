@@ -21,8 +21,10 @@ the Spark. UI: `/ui`.
 | `Comfy-Org/Qwen-Image-Layered_ComfyUI@02130716` (fp8mixed transformer, layered VAE) | `~/models/image/qwen-image-layered-comfy` | 20.8 GB | `comfyui_auto` (layer decomposition for parallax) |
 | `Comfy-Org/Qwen-Image_ComfyUI@1f12b17b` (Qwen2.5-VL 7B fp8_scaled TE only) | `~/models/image/qwen-image-te` | 9.4 GB | same |
 
-Engine image `karspark/comfyui:0.42.4` is built. The recipe is in `recipes/comfyui/`. Image/video workflow
-graphs (`engines/comfyui/adapter/workflows.py`) still need authoring against `/object_info`.
+**Ready to deploy (2026-10-23):** engine image `karspark/comfyui:0.42.4-r2` is built, the recipe is
+`recipes/comfyui/comfy.yaml` (aliases `flux2-dev`, `ltx-2.5`, `qwen-image-layered`), and all 7 graphs in
+`engines/comfyui/adapter/workflows.py` pass ComfyUI's own validator (`scripts/validate-comfy-graphs.sh`).
+Not yet run on the GPU, so there are no timings. Deploying unloads Flash-Next.
 
 ## Engines on the box
 
@@ -37,7 +39,7 @@ Everything runs in Docker. Nothing is installed on the host except Docker itself
 | `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM | Docker Hub, pinned digest |
 | `karspark/hf-cli:2.2.0` | model downloads | `engines/hf-cli/Dockerfile` |
 | `karspark/bench:1` | benchmark harness | `bench/Dockerfile` |
-| `karspark/comfyui:0.42.4` | ComfyUI + torch 2.13 cu130 + OpenAI-style adapter | `engines/comfyui/Dockerfile` |
+| `karspark/comfyui:0.42.4-r2` | ComfyUI + torch 2.13 cu130 + OpenAI-style adapter | `engines/comfyui/Dockerfile` |
 
 ## Ports
 

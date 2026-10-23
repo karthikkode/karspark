@@ -105,7 +105,9 @@ async def images_generations(request):
     req = await request.json()
     session = request.app["session"]
     try:
-        refs = [await upload_image(session, b) for b in req.get("reference_images", [])]
+        # "image" (the picture to split, for qwen-image-layered) goes first, then any reference images.
+        sources = ([req["image"]] if req.get("image") else []) + list(req.get("reference_images") or [])
+        refs = [await upload_image(session, b) for b in sources]
         n = max(1, min(int(req.get("n", 1)), 8))
         seed = req.get("seed")
         seed = int(seed) if seed is not None else random.randint(0, 2**31 - 1)
