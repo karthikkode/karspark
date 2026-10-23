@@ -73,7 +73,7 @@ async def test_boots_into_coding_and_proxies_text(env):
                          headers=env.owner)
     assert r.status_code == 200, r.text
     assert r.json()["choices"][0]["message"]["content"].startswith("flash:")
-    assert env.flash.requests[-1]["model"] == "qwen3.8-flash" and env.flash.requests[-1]["max_tokens"] == 16384
+    assert env.flash.requests[-1]["model"] == "qwen3.8-flash" and "max_tokens" not in env.flash.requests[-1]   # core sets no cap
     r = await env.c.post("/v1/chat/completions", json={"model": "text", "stream": True,
                                                        "messages": [{"role": "user", "content": "hi"}]}, headers=env.owner)
     assert "w4" in r.text and "[DONE]" in r.text
@@ -359,3 +359,19 @@ async def test_text_job_that_only_reasons_fails_clearly(env):
     await env.until(lambda: _is_state(env, job["id"], "failed"))
     j = (await env.c.get(f"/v1/jobs/{job['id']}", headers=std)).json()
     assert "reasoning" in j["error"]["message"] and j["progress"]["reasoning_chars"] > 0
+
+
+async def test_text_job_and_stream_stop_when_the_model_loops(env):
+    # with no max_tokens, a model stuck repeating itself would hold a slot until the context is full
+    env.flash.loop = "I should check the map again. "
+    job = (await env.c.post("/v1/jobs", json={"type": "text", "prompt": "a story"}, headers=env.owner)).json()
+    await env.until(lambda: _is_state(env, job["id"], "failed"))
+    j = (await env.c.get(f"/v1/jobs/{job['id']}", headers=env.owner)).json()
+    assert "repeating itself" in j["error"]["message"] and "max_tokens" not in env.flash.requests[-1]
+    r = await env.c.post("/v1/chat/completions", json={"model": "text", "stream": True,
+                                                       "messages": [{"role": "user", "content": "hi"}]}, headers=env.owner)
+    assert "repeating itself" in r.text and "[DONE]" not in r.text
+    env.flash.loop = None
+    r = await env.c.post("/v1/chat/completions", json={"model": "text", "stream": True,
+                                                       "messages": [{"role": "user", "content": "hi"}]}, headers=env.owner)
+    assert "[DONE]" in r.text     # the slot was released

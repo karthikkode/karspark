@@ -11,7 +11,7 @@
 
 | id | engine | memory | notes |
 |---|---|---|---|
-| `qwen3.8-27b:vllm` (model `qwen3.8-27b`, mode `creative`, port 10030) | [vllm-salient](../../engines/vllm-salient/README.md) image (confirmed: loads as Qwen3-VL, so it has vision) | 0.30 util ≈ 36 GiB, 44g cap (0.25 left too little KV) | **deployed**, 249 s cold: MTP 3 tokens, FP8 KV, prefix caching, `qwen3_xml` tools, `qwen3` reasoning, 128K ctx, 4 sequences |
+| `qwen3.8-27b:vllm` (model `qwen3.8-27b`, mode `creative`, port 10030) | [vllm-salient](../../engines/vllm-salient/README.md) image (confirmed: loads as Qwen3-VL, so it has vision) | 0.30 util ≈ 36 GiB, 44g cap (0.25 left too little KV) | **deployed**, 249 s cold: MTP 3 tokens, FP8 KV, prefix caching, `qwen3_xml` tools, `qwen3` reasoning, 256K ctx (the model's full context; ~8 GiB of FP8 KV per full-length request), 4 sequences |
 
 ## Bake-off (2026-10-23, `bench/2026-10-23-bakeoff{,-b}/`)
 
@@ -23,3 +23,7 @@ reliability; Glimmer writes better prose and is faster (full table in
 long-form chapter spent 53–65K characters of reasoning and wrote nothing in 11–13 min. With
 `chat_template_kwargs: {enable_thinking: false}` (`reasoning_effort="none"`) it wrote 1429–1592 words in
 about 100 s. Core r8 fails such a job clearly instead of returning empty text.
+
+**No output cap (core r10).** That chapter hit the bake-off's 16K `max_tokens`, not a model limit. Core no
+longer adds `max_tokens`, and the context was raised from 128K to the model's full 256K, so a request
+runs until the model is done; a looping one is stopped (`core/karspark/loopguard.py`).

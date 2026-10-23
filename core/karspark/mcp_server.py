@@ -43,8 +43,9 @@ Working efficiently
 - Pass idempotency_key on generation tools so a retried call never makes a duplicate job. After a dropped
   call without one, check list_jobs before resubmitting.
 - Use the lowest priority that is good enough; your key's tier caps it anyway.
-- The creative planner reasons before answering and that counts toward max_tokens: allow 4000+ for prose, or
-  reasoning_effort="none" for the text alone."""
+- No max_tokens is needed: karspark sets no cap, and a model runs until it is done (a looping model is
+  stopped). The creative planner reasons first, which can take many minutes on long prose: use
+  generate_text(as_job=true) for long writing, or pass reasoning_effort="none" for the text alone."""
 
 
 def build_mcp(k) -> MCPServer:
@@ -65,10 +66,18 @@ def build_mcp(k) -> MCPServer:
         return await _result(k, p, view)
 
     # ---------------------------------------------------------------- generation
-    @mcp.tool(description="Generate text with the loaded LLM (default model 'text'). Returns the answer.")
+    @mcp.tool(description="Generate text with the loaded LLM (default model 'text'). Returns the answer. No "
+                          "max_tokens needed (no cap). For long writing set as_job=true: it runs as a text job you can "
+                          "wait_job, pause and resume, and the answer is in outputs[0].text.")
     async def generate_text(ctx: Context, prompt: str, system: str | None = None, max_tokens: int | None = None,
                             reasoning_effort: str | None = None, temperature: float | None = None,
-                            model: str = "text", priority: int | None = None) -> dict:
+                            model: str = "text", priority: int | None = None, as_job: bool = False,
+                            wait_s: float = 50, idempotency_key: str | None = None):
+        if as_job:
+            return await media(ctx, {"type": "text", "prompt": prompt, "system": system, "max_tokens": max_tokens,
+                                     "reasoning_effort": reasoning_effort, "temperature": temperature,
+                                     "model": model, "priority": priority, "idempotency_key": idempotency_key},
+                               wait_s)
         p = await who(ctx)
         return await complete(k, p, prompt=prompt, system=system, model=model, max_tokens=max_tokens,
                               reasoning_effort=reasoning_effort, temperature=temperature, priority=priority)

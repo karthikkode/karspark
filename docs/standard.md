@@ -62,7 +62,6 @@ served_name: qwen3.8-27b             # what the backend calls it (text)
 port: 10030                          # fixed, 10001..10999, unique; bound on 127.0.0.1 only
 memory_gib: 32                       # free memory needed before start; counts toward the mode's 115 GiB
 slots: 4                             # concurrent text requests (= --max-num-seqs) or media jobs
-max_tokens_default: 8192
 load_timeout_s: 1200
 run: |                               # docker run args; core adds --name ks-..., -d, --init and its label
   --gpus all ... -p 127.0.0.1:${PORT}:8000 -v ${models}/llm/qwen3.8-27b-nvfp4:/model:ro -e HF_HUB_OFFLINE=1

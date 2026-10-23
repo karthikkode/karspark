@@ -9,7 +9,6 @@ served_name: muse-glimmer-30b
 port: 10031
 memory_gib: 36           # 0.30 x 121 GiB: ~24 GB weights (vision encoder BF16) + 4.8 GB drafter + fp8 KV + graphs
 slots: 4
-max_tokens_default: 8192
 load_timeout_s: 1200
 stop_timeout_s: 30
 run: |

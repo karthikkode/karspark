@@ -21,8 +21,10 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
-def chat(base, model, messages, tools=None, max_tokens=8192, timeout=1800, extra=None):
-    body = {"model": model, "messages": messages, "max_tokens": max_tokens, **(extra or {})}
+def chat(base, model, messages, tools=None, max_tokens=None, timeout=1800, extra=None):
+    body = {"model": model, "messages": messages, **(extra or {})}   # no cap unless asked, like karspark
+    if max_tokens:
+        body["max_tokens"] = max_tokens
     if tools:
         body["tools"] = tools
     req = urllib.request.Request(f"{base}/v1/chat/completions", data=json.dumps(body).encode(),
@@ -83,7 +85,7 @@ def task_plan(base, model, t):
 
 def task_longform(base, model, t):
     msgs = [{"role": "system", "content": t["system"]}, {"role": "user", "content": t["user"]}]
-    msg, m = chat(base, model, msgs, max_tokens=16384, extra=t.get("extra"))
+    msg, m = chat(base, model, msgs, timeout=3600, extra=t.get("extra"))
     words = len((msg.get("content") or "").split())
     return msg, m, {"length": t["min_words"] <= words <= t["max_words"], "words": words}
 

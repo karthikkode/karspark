@@ -32,9 +32,11 @@ The MCP server sends a short version of this page as its `instructions` on conne
    the GPU is free and steps aside for urgent work without losing progress. Your tier caps priority anyway.
 10. **Pause instead of cancel** when the work might still be wanted. A paused job keeps every finished step
     and resumes exactly.
-11. **The planner thinks before it answers.** Reasoning counts toward `max_tokens`, so give prose 4000+
-    tokens, or `reasoning_effort="none"` when you want only the text. A text job that runs out of tokens while
-    still reasoning fails and says so; `progress.reasoning_chars` shows the thinking as it grows.
+11. **Don't set `max_tokens`.** karspark sets no cap, so the model finishes its answer however long it is.
+    Only a model stuck repeating itself is stopped, with an error that says so. The planner thinks before it
+    answers, and on long prose that can take many minutes: submit long writing as a text job
+    (`generate_text(as_job=true)` on MCP; it survives pauses and mode switches), or pass `reasoning_effort="none"` when you want only the text.
+    `progress.reasoning_chars` shows the thinking as it grows.
 12. **Videos are silent.** `audio="sfx"` adds sound effects only. Music and voices are never generated; add
     them elsewhere.
 

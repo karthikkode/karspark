@@ -74,6 +74,9 @@ async def test_tools_status_text_and_image(served):
         assert data["mode"]["current"] == "coding" and data["you"]["tier"] == "owner"
         t = await s.call_tool("generate_text", {"prompt": "hello"})
         assert json.loads(t.content[0].text)["text"].startswith("flash:")
+        t = await s.call_tool("generate_text", {"prompt": "a long story", "as_job": True, "wait_s": 5})
+        job = json.loads(t.content[0].text)
+        assert job["kind"] == "text" and job["state"] == "succeeded" and job["outputs"][0]["text"].startswith("w0")
         await s.call_tool("request_mode", {"mode": "creative"})
         for _ in range(500):
             if k.sched.state.current == "creative" and not k.sched.switching:

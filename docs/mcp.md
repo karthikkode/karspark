@@ -35,7 +35,7 @@ with `wait_job`.
 
 | tool | defaults |
 |---|---|
-| `generate_text(prompt, system?, max_tokens?, reasoning_effort?, temperature?, model="text", priority?)` | the loaded text model; returns `{text, reasoning, usage}` |
+| `generate_text(prompt, system?, max_tokens?, reasoning_effort?, temperature?, model="text", priority?, as_job=false, wait_s=50, idempotency_key?)` | the loaded text model; returns `{text, reasoning, usage}`. No cap unless you pass `max_tokens`; gives up after 10 min. `as_job=true` runs it as a text job instead (pausable, no time limit, answer in `outputs[0].text`) |
 | `generate_image(prompt, size?, reference_images?, loras?, steps?, seed?, turbo=true, priority?, wait_s=50)` | FLUX.2 + Turbo LoRA, 12 steps |
 | `split_layers(image, layers=4, prompt?, resolution?, seed?, priority?, wait_s=50)` | Qwen-Image-Layered |
 | `upscale_image(image, model="seedvr2-7b", scale=2, prompt?, loras?, priority?, wait_s=50)` | also `seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime` |

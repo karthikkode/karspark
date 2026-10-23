@@ -1,14 +1,14 @@
 # The creative-mode planner: runs next to ComfyUI so an LLM is always there to plan, write prompts and
-# drive the karspark MCP tools. DRAFT until the phase-0 bake-off on the Spark (image support, MTP gain,
-# memory with ComfyUI busy). Starting point: community Spark recipes for Qwen3.8-27B NVFP4 + MTP.
+# drive the karspark MCP tools. Won the 2026-10-23 bake-off against Muse-Glimmer-30B (README).
 kind: text
 capabilities: [text]
 models: [qwen3.8-27b]
 served_name: qwen3.8-27b
 port: 10030
 memory_gib: 36           # 0.30 x 121 GiB (0.25 left 3.4 GiB KV: under one 128K request, failed at load)
+# Full 256K context (the model's own limit): only 16 of 64 layers are full attention, so FP8 KV is ~32 KiB a
+# token and one 256K request needs ~8 GiB. Core sets no max_tokens, so this is the only cap.
 slots: 4
-max_tokens_default: 8192
 load_timeout_s: 1200
 stop_timeout_s: 30
 run: |
@@ -23,7 +23,7 @@ run: |
   karspark/vllm-salient:2026-10-14-77154ca6
   serve /model --host 0.0.0.0 --port 8000
   --served-model-name qwen3.8-27b
-  --max-model-len 131072 --max-num-seqs 4
+  --max-model-len 262144 --max-num-seqs 4
   --gpu-memory-utilization 0.30
   --kv-cache-dtype fp8 --enable-prefix-caching
   --reasoning-parser qwen3

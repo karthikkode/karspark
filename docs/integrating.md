@@ -50,9 +50,12 @@ r = client.chat.completions.create(model="text", messages=[{"role": "user", "con
 - Streams get keepalive pings (an SSE comment, or an Anthropic `ping` event) while they wait. Allow long
   read timeouts (10 min or more).
 - Anthropic SDK: `base_url="http://100.101.249.74:8080"`, same key, `/v1/messages`.
-- The planner (`qwen3.8-27b`) thinks before answering, and reasoning counts toward `max_tokens`. Allow
-  4000+ for prose, or send `reasoning_effort: "none"` (text jobs) / `chat_template_kwargs: {"enable_thinking":
-  false}` (chat) to skip it.
+- karspark adds no `max_tokens`: a request runs until the model stops or its context is full (256K tokens
+  for both the planner and Flash-Next). A model stuck repeating itself is stopped with an error. Set
+  `max_tokens` only if you really want a cap.
+- The planner (`qwen3.8-27b`) thinks before answering, which can take many minutes on long prose. Send
+  `reasoning_effort: "none"` (text jobs) / `chat_template_kwargs: {"enable_thinking": false}` (chat) to skip
+  it. Non-streamed calls give up after 30 min (MCP `generate_text`: 10 min), so stream, or use a text job.
 - Long writing you might want to pause: submit it as a `text` **job** (below). A pause keeps the partial
   text, and resume continues it.
 

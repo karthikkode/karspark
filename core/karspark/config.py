@@ -40,7 +40,6 @@ class Recipe:
     stop_timeout_s: int = 60
     capabilities: tuple[str, ...] = ("text",)
     served_name: str | None = None  # model name the backend expects (text engines)
-    max_tokens_default: int = 8192
 
     @property
     def container(self) -> str:
@@ -144,8 +143,7 @@ def load(root: Path) -> Config:
                        models=tuple(d["models"]), run=d["run"], slots=int(d.get("slots", 1)),
                        health=d.get("health", "/health"), load_timeout_s=int(d.get("load_timeout_s", 1800)),
                        stop_timeout_s=int(d.get("stop_timeout_s", 60)),
-                       capabilities=tuple(d.get("capabilities", ["text"])), served_name=d.get("served_name"),
-                       max_tokens_default=int(d.get("max_tokens_default", 8192)))
+                       capabilities=tuple(d.get("capabilities", ["text"])), served_name=d.get("served_name"))
         except (KeyError, TypeError, ValueError) as e:
             errors.append(f"{where}: missing or bad field ({e})")
             continue

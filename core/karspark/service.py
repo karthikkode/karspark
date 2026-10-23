@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import time
 
+import httpx
+
 from .api_common import INPUTS, check_webhook, default_model, job_view, new_seed, validate_media
 from .jobs import FINAL, JobError, new_id
 
@@ -256,12 +258,18 @@ async def complete(k, p, prompt=None, system=None, messages=None, model="text", 
     prio = 0 if coding else p.effective_priority(parse_priority(priority))
     eng, s = await asyncio.wait_for(k.sched.acquire_text(p, model, prio, "mcp_" + uuid.uuid4().hex[:10], coding), timeout)
     try:
-        body = {"model": eng.served_name, "messages": msgs, "max_tokens": int(max_tokens or eng.max_tokens_default)}
+        body = {"model": eng.served_name, "messages": msgs}
+        if max_tokens:
+            body["max_tokens"] = int(max_tokens)
         if temperature is not None:
             body["temperature"] = float(temperature)
         if reasoning_effort:
             body["chat_template_kwargs"] = {"enable_thinking": reasoning_effort not in ("none", "off")}
-        r = await k.http.post(eng.base_url + "/v1/chat/completions", json=body, timeout=timeout)
+        try:
+            r = await k.http.post(eng.base_url + "/v1/chat/completions", json=body, timeout=timeout)
+        except httpx.TimeoutException:
+            raise JobError(f"no answer within {timeout:.0f} s; submit long writing as a text job "
+                           "(POST /v1/jobs type=text, or reasoning_effort='none')", 504)
     finally:
         k.sched.release_text(s)
     if r.status_code != 200:

@@ -29,7 +29,10 @@ interactive version is at `/docs`.
 - `model`: `text` (the loaded mode's text model, never waits), or a model name from `GET /v1/models`.
 - Priority: header `X-Karspark-Priority: 0..3` or `P0..P3`, or a `priority` field (it is removed before the
   request reaches the engine). Echoed back in the `X-Karspark-Priority` response header.
-- `max_tokens` defaults per model when omitted (Flash-Next 16384, planner 8192).
+- No `max_tokens` is added when omitted: the model runs until it stops or the context is full. A stream
+  that starts repeating itself (the last 4000 characters are one block repeated 4+ times) ends with an
+  error event; a text job fails with the same message and keeps its partial output. A non-streamed request
+  returns `504` after 30 min.
 - The body is otherwise passed through to vLLM: `tools`, `response_format`, `chat_template_kwargs`
   (`{"enable_thinking": true}`), `reasoning_effort`, and so on.
 - Streams start immediately and send keepalives (`: keepalive` comments, or Anthropic `ping` events) while
@@ -75,7 +78,8 @@ checked against the real graph builder at submit time, so mistakes are a `400` n
 
 `paused_by` is `user` (you or an owner paused it) or `system` (preempted, or the mode switched; it resumes
 by itself). Text jobs: `outputs[0].text` holds the answer; `progress.partial_chars` and `progress.reasoning_chars` grow
-while it runs. A text job that used all `max_tokens` reasoning and wrote no answer fails with that message.
+while it runs. A text job that used its whole budget (your `max_tokens`, or the context) reasoning and wrote no answer
+fails with that message; one stopped for looping says so.
 
 | route | |
 |---|---|

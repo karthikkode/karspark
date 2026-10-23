@@ -6,7 +6,6 @@ served_name: qwen3-0.6b
 port: 10002
 memory_gib: 12
 slots: 8
-max_tokens_default: 2048
 load_timeout_s: 600
 stop_timeout_s: 20
 run: |

@@ -57,6 +57,7 @@ class FakeText:
         self.name, self.delay, self.words = name, delay, words
         self.requests = []
         self.think_only = False   # a thinking model that spends the whole max_tokens on reasoning
+        self.loop = None          # a phrase the model repeats (400 times)
 
     def handle(self, req: httpx.Request):
         if req.url.path == "/health":
@@ -64,6 +65,8 @@ class FakeText:
         body = json.loads(req.content or b"{}")
         self.requests.append(body)
         words = [f"w{i} " for i in range(self.words)]
+        if self.loop:
+            words = ["Let me think about this. "] + [self.loop] * 400
         if body.get("continue_final_message"):
             words = ["more "]
         if not body.get("stream"):

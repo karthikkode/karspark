@@ -15,6 +15,7 @@ import uuid
 
 import httpx
 
+from .loopguard import LoopGuard
 from .policy import family
 
 POLL_S = 1.0
@@ -135,7 +136,6 @@ class Workers:
             messages.append({"role": "user", "content": params.get("prompt", "")})
         body = {k: v for k, v in params.items() if k not in ("messages", "prompt", "system", "model", "reasoning_effort")}
         body.update({"model": eng.served_name or job["model"], "stream": True, "messages": messages})
-        body.setdefault("max_tokens", eng.max_tokens_default)
         if params.get("reasoning_effort") in ("none", "off"):
             body.setdefault("chat_template_kwargs", {})["enable_thinking"] = False
         elif params.get("reasoning_effort"):
@@ -143,9 +143,11 @@ class Workers:
         if prev:
             body["messages"] = messages + [{"role": "assistant", "content": prev}]
             body["continue_final_message"], body["add_generation_prompt"] = True, False
-            body["max_tokens"] = max(256, body["max_tokens"] - (job.get("progress") or {}).get("tokens", 0))
+            if body.get("max_tokens"):   # only a cap the caller set; core sets none
+                body["max_tokens"] = max(256, body["max_tokens"] - (job.get("progress") or {}).get("tokens", 0))
         text, reasoning, tokens, usage, finish = prev, reasoning_prev, (job.get("progress") or {}).get("tokens", 0), None, None
         stop = self.stops[jid]
+        guard = LoopGuard()
         last_save = time.monotonic()
         try:
             async with self.http.stream("POST", f"{eng.base_url}/v1/chat/completions", json=body,
@@ -169,9 +171,13 @@ class Workers:
                         if d.get("content"):
                             text += d["content"]
                             tokens += 1
+                            guard.feed(d["content"])
                         if d.get("reasoning_content") or d.get("reasoning"):
                             reasoning += d.get("reasoning_content") or d.get("reasoning")
+                            guard.feed(d.get("reasoning_content") or d.get("reasoning"))
                         finish = ch.get("finish_reason") or finish
+                    if guard.block:
+                        break               # leaving the stream closes it: vLLM aborts the request
                     if time.monotonic() - last_save > 2:
                         last_save = time.monotonic()
                         prog = {"partial": text, "reasoning": reasoning, "tokens": tokens}
@@ -187,10 +193,14 @@ class Workers:
                 return {"state": "cancelled"}
             await self.jobs.db.update("jobs", "id", jid, {"progress": prog})
             return {"state": "paused", "progress": prog}
-        if not text.strip() and finish == "length":
+        if guard.block:
             return {"state": "failed", "progress": prog, "error": {
-                "message": f"the model spent all {body['max_tokens']} max_tokens reasoning and wrote no answer; "
-                           "raise max_tokens or set reasoning_effort='none'", "reasoning_chars": len(reasoning)}}
+                "message": guard.reason() + "; the partial output is in progress", "reasoning_chars": len(reasoning)}}
+        if not text.strip() and finish == "length":
+            cap = f"the max_tokens you set ({body['max_tokens']})" if body.get("max_tokens") else "the context window"
+            return {"state": "failed", "progress": prog, "error": {
+                "message": f"the model spent {cap} reasoning and wrote no answer; "
+                           "raise or drop max_tokens, or set reasoning_effort='none'", "reasoning_chars": len(reasoning)}}
         out_dir = self.jobs.dir(jid) / "out"
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "output.txt").write_text(text)

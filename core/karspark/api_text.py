@@ -11,6 +11,9 @@ Streams start at once: while a request waits for a slot or a mode switch, and wh
 silent for `keepalive_s` (tool-call parsers buffer), the client gets keepalive pings (an SSE comment for
 OpenAI, a `ping` event for Anthropic), so no client times out. A client that disconnects frees its slot
 and the engine aborts the request.
+
+Core adds no `max_tokens`: a request runs until the model stops or its context is full. A stream that
+starts repeating itself is ended with an error event (loopguard.py).
 """
 from __future__ import annotations
 
@@ -25,6 +28,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from .api_common import err, log_info, principal
 from .jobs import JobError
+from .loopguard import LoopGuard
 from .service import parse_priority
 
 router = APIRouter()
@@ -94,10 +98,8 @@ async def proxy(request: Request, p, path, flavor):
 
 
 def _prepare(body, eng, path):
-    body = dict(body)
+    body = dict(body)   # no max_tokens added: the model runs until it stops or the context is full
     body["model"] = eng.served_name or body.get("model")
-    if path in ("/v1/chat/completions", "/v1/completions") and not (body.get("max_tokens") or body.get("max_completion_tokens")):
-        body["max_tokens"] = eng.max_tokens_default
     return body
 
 
@@ -109,6 +111,9 @@ async def _unary(request, k, p, path, flavor, body, model, prio, coding, sid, in
         r = await k.http.post(eng.base_url + path, json=_prepare(body, eng, path),
                               timeout=httpx.Timeout(30, read=1800))
         info["gen_ms"] = round((time.perf_counter() - t1) * 1000, 1)
+    except httpx.TimeoutException:
+        return err(504, "no answer within 30 min; use stream=true or a text job (POST /v1/jobs) for long output",
+                   "server_error")
     except httpx.HTTPError as e:
         return err(502, f"text engine error: {e!r}", "server_error")
     finally:
@@ -134,6 +139,7 @@ async def _stream(request, k, p, path, flavor, body, model, prio, coding, sid, i
     reader = None
     text_parts, size = [], 0
     usage, chunks, ttft = {}, 0, None
+    guard = LoopGuard()
     try:
         while not acquire.done():  # waiting for a slot or a mode switch: keep the client alive
             done, _ = await asyncio.wait({acquire}, timeout=keepalive)
@@ -188,6 +194,10 @@ async def _stream(request, k, p, path, flavor, body, model, prio, coding, sid, i
                 if size < LOG_TEXT_CAP:
                     text_parts.append(delta)
                     size += len(delta)
+                if guard.feed(delta):
+                    info["error"] = guard.reason()
+                    yield _sse_error(flavor, guard.reason(), 500)
+                    break           # the finally closes the upstream stream: vLLM aborts the request
             u = _usage(ev)
             if u:
                 usage = {**usage, **{key: v for key, v in u.items() if v is not None}}

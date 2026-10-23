@@ -7,7 +7,6 @@ served_name: qwen3.8-flash
 port: 10011
 memory_gib: 100          # free memory needed before start (a previous model may still be unmapping)
 slots: 6                 # = --max-num-seqs
-max_tokens_default: 16384
 load_timeout_s: 1800     # ~6 min warm, ~15 min cold
 stop_timeout_s: 60
 run: |

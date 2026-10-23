@@ -30,6 +30,9 @@ history at commit `f64547d`.
 - Put a **keepalive proxy** in front of agent clients. Tool-call parsers buffer arguments and go silent for
   minutes, and client stall detectors drop the stream. Send the official Anthropic `ping` event, not SSE comments.
 - Hermes/agents: set `max_tokens` per custom model, or the 64K default output reservation overflows the context.
+- A thinking model's reasoning counts toward `max_tokens`. With a cap, Qwen3.8-27B spent all 16K tokens of a
+  chapter reasoning and returned an empty answer (2026-10-23). Core now sets no cap; the context window is the
+  limit, and `loopguard.py` stops exact repetition loops instead.
 - Llama + vLLM `llama3_json` allows only one tool call per turn, which is a bad fit for parallel-tool agents.
 
 ## Images (ComfyUI)
