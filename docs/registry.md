@@ -64,7 +64,7 @@ Everything runs in Docker. Nothing is installed on the host except Docker itself
 | `karspark/vllm-salient:2026-10-14-77154ca6` | vLLM nightly + 14 Flash-Next patches | `engines/vllm-salient/upstream/Dockerfile` |
 | `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM | Docker Hub, pinned digest |
 | `karspark/hf-cli:2.2.0-xet1.7.0` | model downloads | `engines/hf-cli/Dockerfile` |
-| `karspark/bench:3` | benchmark harness + planner bake-off | `bench/Dockerfile` |
+| `karspark/bench:4` | benchmark harness + planner bake-off | `bench/Dockerfile` |
 | `karspark/gateway:265` | llama-swap (pre-core) | removed from the repo; delete the image after cutover |
 
 ## Ports

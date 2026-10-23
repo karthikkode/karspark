@@ -1,6 +1,6 @@
 # Bench
 
-One harness for every recipe, run in a container (`karspark/bench:3`) against karspark (:8080). It executes
+One harness for every recipe, run in a container (`karspark/bench:4`) against karspark (:8080). It executes
 model-written code to grade answers, so it never runs on the host.
 
 - `tonyd2wild/`: the community harness used by the published single-Spark Flash-Next numbers, vendored

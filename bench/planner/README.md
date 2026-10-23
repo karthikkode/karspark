@@ -1,7 +1,7 @@
 # Planner bake-off
 
 Picks the `creative` mode's LLM (`qwen3.8-27b` vs `muse-glimmer-30b`) on the planner's real jobs, through
-karspark like any client. `bakeoff.py` is stdlib only and runs in `karspark/bench:3`.
+karspark like any client. `bakeoff.py` is stdlib only and runs in `karspark/bench:4`.
 
 | task | kind | auto-checked |
 |---|---|---|
