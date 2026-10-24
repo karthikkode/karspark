@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS engine_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT, t REAL NOT NULL, engine TEXT NOT NULL, kind TEXT NOT NULL, data TEXT
 );
 CREATE TABLE IF NOT EXISTS resource_samples (
-  t REAL PRIMARY KEY, mem_used_gib REAL, mem_avail_gib REAL, gpu_util REAL, gpu_temp REAL, gpu_power_w REAL
+  t REAL PRIMARY KEY, mem_used_gib REAL, mem_avail_gib REAL, gpu_util REAL, gpu_temp REAL, gpu_power_w REAL,
+  therm_c REAL
 );
 """
 BODY_CAP = 1 << 20  # 1 MiB per side; longer bodies are truncated (and flagged)
@@ -77,6 +78,9 @@ class AuditLog:
         await self.conn.execute("PRAGMA journal_mode=WAL")
         await self.conn.execute("PRAGMA synchronous=NORMAL")
         await self.conn.executescript(SCHEMA)
+        cols = {r["name"] for r in await (await self.conn.execute("PRAGMA table_info(resource_samples)")).fetchall()}
+        if "therm_c" not in cols:  # logs.db from before core r15
+            await self.conn.execute("ALTER TABLE resource_samples ADD COLUMN therm_c REAL")
         await self.conn.commit()
         self.task = asyncio.create_task(self._writer())
         return self
@@ -126,9 +130,9 @@ class AuditLog:
             self.bus.publish("engine", {"t": t, "engine": engine, "kind": kind, **data})
 
     def sample(self, **s):
-        self.q.put_nowait(("INSERT OR REPLACE INTO resource_samples VALUES (?, ?, ?, ?, ?, ?)",
+        self.q.put_nowait(("INSERT OR REPLACE INTO resource_samples VALUES (?, ?, ?, ?, ?, ?, ?)",
                            (self.clock(), s.get("mem_used_gib"), s.get("mem_avail_gib"), s.get("gpu_util"),
-                            s.get("gpu_temp"), s.get("gpu_power_w"))))
+                            s.get("gpu_temp"), s.get("gpu_power_w"), s.get("therm_c"))))
 
     # ---------------------------------------------------------------- writer
     async def _writer(self):

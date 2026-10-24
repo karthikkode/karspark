@@ -36,7 +36,7 @@ from .files import Files
 from .jobs import JobError, JobStore
 from .keys import Keys
 from .ratelimit import RateLimiter
-from .resources import Resources, maintenance
+from .resources import Resources, hottest_c, maintenance
 from .scheduler import Scheduler
 from .service import Service
 from .workers import Workers
@@ -51,7 +51,7 @@ class Karspark:
     """Everything the routes need, built once per process."""
 
     def __init__(self, root: Path, data: Path, pepper: str, runner=None, http=None, clock=time.time,
-                 adopt=True, background=True, tick_s=1.0, mem_free=None, poll_s=2.0):
+                 adopt=True, background=True, tick_s=1.0, mem_free=None, poll_s=2.0, thermal=None):
         self.root, self.data, self.clock = root, data, clock
         self.cfg = cfgmod.load(root)
         self.bus = Bus()
@@ -68,7 +68,8 @@ class Karspark:
                                      **kw)
         self.workers = Workers(self.cfg, self.jobs, self.files, self.keys, self.engines, self.log, self.bus, self.http)
         self.sched = Scheduler(self.cfg, self.db, self.jobs, self.files, self.engines, self.log, self.bus, self.keys,
-                               self.workers, clock, tick_s)
+                               self.workers, clock, tick_s,
+                               thermal=thermal or (hottest_c if background else (lambda: None)))
         self.resources = Resources(self.log)
         self.svc = Service(self)
         self.adopt, self.background = adopt, background

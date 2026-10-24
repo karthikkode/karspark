@@ -1,0 +1,17 @@
+# GB10 hard power-off workaround: cap the GPU clock at 2200 MHz (stock boost 2418).
+# Under minutes of full GPU load (LTX video) a thermal zone spikes and the board cuts power faster than Linux
+# can log anything; the box stays off until power-cycled. docs/lessons.md "Hard power-off under video load".
+# Install (sudo, by the owner): see host/README.md. Revert: sudo systemctl disable --now gb10-clock-cap.
+[Unit]
+Description=Cap the GB10 GPU clock at 2200 MHz (hard power-off workaround)
+After=nvidia-persistenced.service
+Wants=nvidia-persistenced.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/nvidia-smi -lgc 300,2200
+ExecStop=/usr/bin/nvidia-smi -rgc
+
+[Install]
+WantedBy=multi-user.target

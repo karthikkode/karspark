@@ -56,8 +56,10 @@ class Run:
 
 class Scheduler:
     def __init__(self, cfg: Config, db, jobs, files, engines, log, bus, keys, workers, clock=time.time,
-                 tick_s=1.0):
+                 tick_s=1.0, thermal=lambda: None):
         self.cfg, self.db, self.jobs, self.files, self.engines = cfg, db, jobs, files, engines
+        self.thermal = thermal                    # () -> hottest thermal zone in C, or None (no sensor)
+        self.thermal_hold: dict | None = None     # set while media waits for the box to cool
         self.log, self.bus, self.keys, self.workers, self.clock, self.tick_s = log, bus, keys, workers, clock, tick_s
         s = cfg.sched
         self.coding_mode = next((m.name for m in cfg.modes.values() if m.coding), None)
@@ -141,6 +143,7 @@ class Scheduler:
         if self.runs or self.streams:
             self.state.last_activity = now
         await self._timeouts(now)
+        await self._thermal_pause()
         if self.switching:
             return
         queued = await self.jobs.waiting()
@@ -207,6 +210,8 @@ class Scheduler:
         if busy:
             await self._maybe_preempt(busy[0], mine, now)
             return
+        if self._too_hot(now):
+            return
         e = self.engines.engines[eng.id]
         p = policy.pick([self._item(j) for j in mine], now, self.cfg.sched.age_after_s, self.fair_media,
                         e.loaded_model, self.cfg.sched.affinity_skip_budget)
@@ -215,6 +220,33 @@ class Scheduler:
             await self.db.update("jobs", "id", p.bypassed.id, {"skipped": p.bypassed.skipped + 1})
         self.fair_media.charge(job["key_id"], job["_weight"])
         await self._start_run(job, eng, p.reason)
+
+    def _too_hot(self, now) -> bool:
+        """GB10 boxes power off with no log when a thermal zone spikes under minutes of full load (docs/lessons.md).
+        Media waits to start until the hottest zone is below thermal.start_below_c."""
+        t, limit = self.thermal(), self.cfg.sched.thermal_start_below_c
+        if t is not None and t >= limit:
+            if not self.thermal_hold:
+                self.thermal_hold = {"since": now, "hottest_c": t, "resume_below_c": limit}
+                self.log.scheduler_event("thermal_hold", hottest_c=t, resume_below_c=limit)
+            self.thermal_hold["hottest_c"] = t
+            return True
+        if self.thermal_hold:
+            self.log.scheduler_event("thermal_release", hottest_c=t, waited_s=round(now - self.thermal_hold["since"], 1))
+            self.thermal_hold = None
+        return False
+
+    async def _thermal_pause(self):
+        """A running media job pauses at its next step (progress kept, back in the queue first) when the hottest zone
+        reaches thermal.pause_c; _too_hot then holds it until the box has cooled."""
+        t = self.thermal()
+        if t is None or t < self.cfg.sched.thermal_pause_c:
+            return
+        for run in list(self.runs.values()):
+            if run.job["kind"] != "text" and not run.command:
+                self.log.scheduler_event("thermal_pause", job=run.job["id"], hottest_c=t)
+                await self.command(run.job["id"], "thermal", actor="karspark",
+                                   reason=f"paused to cool: hottest thermal zone {t:.0f} C (limit {self.cfg.sched.thermal_pause_c:.0f} C)")
 
     async def _maybe_preempt(self, run: Run, queued, now):
         if run.command:
@@ -598,7 +630,7 @@ class Scheduler:
         return {"current": st.current, "since": st.since, "switching": self.switching, "switch_reason": self.switch_reason,
                 "hold": hold, "pending": st.pending and {k: v for k, v in st.pending.items() if k != "key_id"},
                 "default": self.cfg.sched.default_mode, "text_model": self.cfg.modes[st.current].text,
-                "switch_costs_s": self.switch_costs,
+                "switch_costs_s": self.switch_costs, "thermal_hold": self.thermal_hold,
                 "idle_return_in_s": None if self.runs or self.streams or st.current == self.cfg.sched.default_mode
                 else max(0, int(self.cfg.sched.idle_return_s - (now - st.last_activity)))}
 

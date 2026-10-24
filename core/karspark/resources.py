@@ -3,10 +3,27 @@ plus hourly maintenance: expired files, finished job folders, log retention."""
 from __future__ import annotations
 
 import asyncio
+import glob
 import shutil
 import time
 
 from .engines import mem_available_gib
+
+
+THERMAL_ZONES = "/sys/class/thermal/thermal_zone*/temp"
+
+
+def hottest_c(pattern=THERMAL_ZONES) -> float | None:
+    """The hottest ACPI thermal zone in deg C. This is what the GB10's power-off protection reacts to; nvidia-smi's GPU
+    temperature reads 8-15 C lower under load (docs/lessons.md). A sysfs read, cheap enough for every tick."""
+    temps = []
+    for path in glob.glob(pattern):
+        try:
+            with open(path) as f:
+                temps.append(int(f.read().strip()) / 1000)
+        except (OSError, ValueError):
+            pass
+    return max(temps) if temps else None
 
 
 class Resources:
@@ -38,6 +55,9 @@ class Resources:
                         pass
             except (asyncio.TimeoutError, OSError, IndexError):
                 pass
+        therm = hottest_c()
+        if therm is not None:
+            s["therm_c"] = therm
         s["t"] = time.time()
         self.latest = s
         self.log.sample(**s)

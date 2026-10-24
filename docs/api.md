@@ -114,7 +114,7 @@ Files and job outputs are kept for your tier's `retention_days`.
 
 | route | |
 |---|---|
-| `GET /v1/mode` | `{current, since, switching, hold: {kind, ends_in_s}, pending, text_model, switch_costs_s, idle_return_in_s}` |
+| `GET /v1/mode` | `{current, since, switching, hold: {kind, ends_in_s}, pending, text_model, switch_costs_s, thermal_hold: {since, hottest_c, resume_below_c} or null, idle_return_in_s}` |
 | `POST /v1/mode` `{"mode", "hold_minutes"?}` | `200 active` · `202 switching` · `202 pending {retry_after, reason}` · `403` (coding without a coding key) |
 | `GET /v1/status` | mode, engines (state, loaded model family, load time, error), resources (memory, GPU), running jobs, text streams, queue depth by engine and priority |
 | `GET /v1/queue?engine=` | dispatch order with `why` (priority, aging, fair share) and `eta_s`; other projects are anonymised |

@@ -117,7 +117,8 @@ character with a trained LoRA, pass it in `loras` as well.
 | `429` | rate or open-job limit | wait `Retry-After`, then retry |
 | `502` / `503` | an engine failed or is restarting | retry with backoff; running jobs resume from their checkpoint by themselves |
 | job `failed` | `error` says why | fix the input if it's yours; if it's an engine error, retry once, then report |
-| job `paused`, `paused_by: system` | preempted or a mode switch | nothing; it resumes by itself |
+| job `paused`, `paused_by: system` | preempted, a mode switch, or paused to cool (thermal) | nothing; it resumes by itself |
+| media queued, `status().mode.thermal_hold` set | the box is cooling between media jobs (hottest zone >= 80 C) | nothing; it starts when cool. Budget ~1 min of cooling per long video clip |
 | job `paused`, `paused_by: user` | you or the owner paused it | `resume_job` when wanted |
 | a stream goes quiet | waiting for a slot or a switch; keepalives keep it open | keep the read timeout at 10 min or more |
 

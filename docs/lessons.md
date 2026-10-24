@@ -36,6 +36,17 @@ history at commit `f64547d`.
 - A thinking model's reasoning counts toward `max_tokens`. With a cap, Qwen3.8-27B spent all 16K tokens of a
   chapter reasoning and returned an empty answer (2026-10-23). Core now sets no cap; the context window is the
   limit, and `loopguard.py` stops exact repetition loops instead.
+- **Hard power-off under video load (GB10 defect).** The box died with no log twice in 34 h: 2026-10-23 16:05,
+  and 2026-10-24 01:49 on clip 16 of a 60-clip LTX run (about 2 min of full load per clip, 30 s gaps). No
+  panic, Xid, thermal or OOM message; the journal stopped mid-flight and the box stayed off until
+  power-cycled. The 1 s telemetry (`~/dgx-spark-crash/telemetry`) ended at GPU 82 C / 70 W / 96 %, hottest
+  ACPI zone 93 C; that night peaked at zone 97.5 C, GPU 90 C. This is the known GB10 thermal hard cut. Fixes:
+  - `host/gb10-clock-cap.service`: `nvidia-smi -lgc 300,2200`, which removed it for others at a cost of
+    about 5-9 %.
+  - core's thermal guard (r15): media starts below 80 C and pauses at 92 C.
+
+  Read the ACPI zones: nvidia-smi read 8-15 C under them. A client-side "wait below 70 C on nvidia-smi" guard
+  did not prevent this crash.
 - Llama + vLLM `llama3_json` allows only one tool call per turn, which is a bad fit for parallel-tool agents.
 
 ## Images (ComfyUI)

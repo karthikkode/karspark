@@ -28,6 +28,8 @@ async def env(tmp_path, monkeypatch):
     monkeypatch.setenv("KARSPARK_API_KEY", OWNER)
     clock = Clock()
     runner = FakeRunner()
+    e = type("E", (), {})()
+    e.temp = None  # hottest thermal zone the scheduler sees (None = no sensor)
     from karspark import config
     cfg = config.load(REPO)
     flash, planner, tiny = FakeText("flash"), FakeText("planner"), FakeText("tiny")
@@ -37,11 +39,10 @@ async def env(tmp_path, monkeypatch):
                 "comfyui:comfy": comfy}
     http = httpx.AsyncClient(transport=transport(cfg, handlers, runner))
     k = Karspark(REPO, tmp_path, PEPPER, runner=runner, http=http, clock=clock, adopt=True, background=False,
-                 tick_s=0.01, mem_free=lambda: 1000, poll_s=0.01)
+                 tick_s=0.01, mem_free=lambda: 1000, poll_s=0.01, thermal=lambda: e.temp)
     app = create_app(k, with_mcp=False)
     await k.start()
     client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t", timeout=10)
-    e = type("E", (), {})()
     e.k, e.c, e.clock, e.runner, e.comfy, e.flash, e.planner = k, client, clock, runner, comfy, flash, planner
     e.owner = {"Authorization": f"Bearer {OWNER}"}
 
@@ -411,3 +412,36 @@ async def test_first_media_job_after_a_restart_frees_comfyui(env):
     job = (await env.c.post("/v1/jobs", json={"type": "speech", "text": "Again."}, headers=std)).json()
     await env.until(lambda: _is_state(env, job["id"], "succeeded"))
     assert env.comfy.frees == before + 1                             # same family: no second free
+
+
+async def test_thermal_hold_delays_media_until_cool(env):
+    await go_creative(env)
+    std = await env.key("proj-a", "standard")
+    env.temp = 85.0  # hottest zone above thermal.start_below_c
+    job = (await env.c.post("/v1/jobs", json={"type": "image", "prompt": "hot"}, headers=std)).json()
+    hold = await env.until(lambda: env.k.sched.thermal_hold)
+    assert hold["hottest_c"] == 85.0
+    st = (await env.c.get("/v1/status", headers=env.owner)).json()
+    assert st["mode"]["thermal_hold"]["resume_below_c"] == 80.0
+    assert (await env.c.get(f"/v1/jobs/{job['id']}", headers=std)).json()["state"] == "queued"
+    assert not env.comfy.runs
+    env.temp = 70.0
+    await env.until(lambda: _state(env, job["id"], "succeeded"))
+    assert env.k.sched.thermal_hold is None
+
+
+async def test_thermal_pause_keeps_progress_and_resumes(env):
+    await go_creative(env)
+    std = await env.key("proj-a", "standard")
+    env.comfy.steps = 50
+    job = (await env.c.post("/v1/jobs", json={"type": "image", "prompt": "long"}, headers=std)).json()
+    await env.until(lambda: env.comfy.jobs.get(job["id"], {}).get("step", 0) >= 2)
+    env.temp = 93.0  # at thermal.pause_c: pause at the next step, back in the queue
+    j = await env.until(lambda: _state(env, job["id"], "queued"))
+    assert j["paused_by"] == "system" and j["preemptions"] == 0
+    await env.until(lambda: env.k.sched.thermal_hold)
+    env.temp = 75.0
+    await env.until(lambda: _state(env, job["id"], "succeeded"), 10)
+    assert [r[0] for r in env.comfy.runs] == [job["id"], job["id"]]
+    ev = (await env.c.get(f"/v1/jobs/{job['id']}/events", headers=std)).json()["data"]
+    assert any("paused to cool" in (e["reason"] or "") for e in ev)

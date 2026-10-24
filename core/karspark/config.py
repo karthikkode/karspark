@@ -89,6 +89,8 @@ class SchedulerCfg:
     keepalive_s: int
     bodies_days: int
     meta_days: int
+    thermal_start_below_c: float = 80.0   # media jobs start only while the hottest thermal zone is below this
+    thermal_pause_c: float = 92.0         # a running media job pauses (progress kept) at or above this
 
 
 @dataclass
@@ -215,9 +217,13 @@ def load(root: Path) -> Config:
             keepalive_s=int(sd.get("keepalive_s", 15)),
             bodies_days=int(sd.get("bodies_days", 30)),
             meta_days=int(sd.get("meta_days", 365)),
+            thermal_start_below_c=float(sd.get("thermal", {}).get("start_below_c", 80)),
+            thermal_pause_c=float(sd.get("thermal", {}).get("pause_c", 92)),
         )
     except (KeyError, TypeError, ValueError, AttributeError) as e:
         raise ConfigError("\n".join(errors + [f"config/scheduler.yaml: missing or bad field ({e})"]))
+    if not sched.thermal_start_below_c < sched.thermal_pause_c:
+        errors.append("config/scheduler.yaml: thermal.start_below_c must be below thermal.pause_c")
     if sched.default_mode not in modes:
         errors.append(f"config/modes.yaml: default_mode {sched.default_mode!r} is not a mode")
     for k in JOB_KINDS:

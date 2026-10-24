@@ -41,7 +41,7 @@ back to the queue marked preempted, and resumes first among its key's jobs. A jo
 
 ## Lossless pause
 
-Every pause (user, preemption, mode switch) keeps progress:
+Every pause (user, preemption, mode switch, thermal) keeps progress:
 
 | work | safe point | what is saved |
 |---|---|---|
@@ -52,6 +52,23 @@ Every pause (user, preemption, mode switch) keeps progress:
 
 Seeds are fixed at submit time, so a resumed job produces the same output as an unpaused one. A paused job
 holds no GPU; its checkpoint stays on disk until it resumes, is cancelled, or passes retention.
+
+## Thermal guard
+
+GB10 boxes hard-power-off with no log when a thermal zone spikes during minutes of full GPU load. This box
+did it twice, the second time on an LTX video run (lessons.md). Core reads the hottest ACPI thermal zone
+(`/sys/class/thermal`) every tick. nvidia-smi's GPU temperature reads 8-15 C lower, so core doesn't use it here.
+
+- A media job starts only while the hottest zone is below `thermal.start_below_c` (80 C), so the box
+  cools between jobs. While it waits, `status` shows `mode.thermal_hold` (`since`, `hottest_c`,
+  `resume_below_c`), and the log records `thermal_hold` / `thermal_release` scheduler events.
+- A running media job that reaches `thermal.pause_c` (92 C) pauses at its next step, keeping its progress,
+  and goes back to the queue (`paused_by: system`, reason "paused to cool"). It resumes first once the box
+  is below `start_below_c`. This doesn't count as a preemption.
+- Text is not gated: LLM decode is memory-bound and runs far cooler.
+
+This is defence in depth. The main fix is the host clock cap (`host/gb10-clock-cap.service`). A spike can
+outrun a 1 s check.
 
 ## ETA
 

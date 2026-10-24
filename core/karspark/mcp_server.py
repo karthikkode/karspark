@@ -46,6 +46,8 @@ Working efficiently
 - Pass idempotency_key on generation tools so a retried call never makes a duplicate job. After a dropped
   call without one, check list_jobs before resubmitting.
 - Use the lowest priority that is good enough; your key's tier caps it anyway.
+- Media waits for the box to cool between jobs, and a job that runs hot pauses (progress kept) and resumes by
+  itself. status() shows mode.thermal_hold; long video batches take longer than the sum of job times.
 - No max_tokens is needed: karspark sets no cap, and a model runs until it is done (a looping model is
   stopped). The creative planner reasons first, which can take many minutes on long prose: use
   generate_text(as_job=true) for long writing, or pass reasoning_effort="none" for the text alone."""

@@ -4,19 +4,22 @@ One endpoint: **`http://100.101.249.74:8080`** (Tailscale). Text (OpenAI `/v1/..
 jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 
 **State on 2026-10-23:**
-- **Live:** karspark-core `0.1.0-r14` on :8080 (cutover 2026-10-23); the gateway is removed.
-  Box in `coding` (Flash-Next). 48 tests pass. Core sets no `max_tokens` (r10); a looping stream or text job
+- **Live:** karspark-core `0.1.0-r14` on :8080 (cutover 2026-10-23); the gateway is removed. **r15
+  (thermal guard) is in the repo, deploy pending** (after the overnight anime run).
+  Box in `coding` (Flash-Next). 53 tests pass. Core sets no `max_tokens` (r10); a looping stream or text job
   is stopped by `loopguard.py`.
 - **Creative mode** ran end to end on the GPU: every media tool, pause/resume, cancel, preemption, text-job
   pause, MCP over HTTP. Planner bake-off: **qwen3.8-27b stays** (tool steps 18/18 vs Glimmer 12/18).
-- **Open issue:** the box powered off hard under sustained creative load (docs/lessons.md,
-  `~/dgx-spark-crash/`). Run heavy batches one at a time, with someone near the box.
+- **Open issue:** the box hard-powers-off under sustained GPU load (twice: 2026-10-23 16:05, 2026-10-24 01:49 on
+  an LTX video run). It's a known GB10 defect (docs/lessons.md, `~/dgx-spark-crash/`). Fixes: the clock cap
+  `host/gb10-clock-cap.service` (**pending: the owner installs it with sudo**) and core r15's thermal guard.
 
 ## Service
 
 | what | image | where | status |
 |---|---|---|---|
-| karspark-core | `karspark/core:0.1.0-r14` | `core/`, unit `core/karspark-core.service`, `--network host`, `:8080` | **deployed** 2026-10-23 |
+| karspark-core | `karspark/core:0.1.0-r15` | `core/`, unit `core/karspark-core.service`, `--network host`, `:8080` | r14 **deployed** 2026-10-24; r15 pending |
+| GPU clock cap | host unit `host/gb10-clock-cap.service` (`nvidia-smi -lgc 300,2200`) | `/etc/systemd/system/` | **pending** (owner, sudo) |
 | llama-swap gateway (pre-core) | `karspark/gateway:265` | removed from the repo and the box (2026-10-23) | **removed** |
 
 ## Modes (`config/modes.yaml`)
@@ -64,7 +67,7 @@ Everything runs in Docker. Nothing is installed on the host except Docker itself
 
 | image | what | built from |
 |---|---|---|
-| `karspark/core:0.1.0-r14` | karspark-core (FastAPI, scheduler, MCP) + docker CLI | `core/Dockerfile` |
+| `karspark/core:0.1.0-r15` | karspark-core (FastAPI, scheduler, MCP) + docker CLI | `core/Dockerfile` |
 | `karspark/comfyui:0.42.4-r7` | ComfyUI + torch 2.13 cu130 + karspark job adapter + pausable sampler nodes + IndexTTS-2.5 worker (own venv, transformers 4.52) | `engines/comfyui/Dockerfile` |
 | `karspark/vllm-salient:2026-10-14-77154ca6` | vLLM nightly + 14 Flash-Next patches | `engines/vllm-salient/upstream/Dockerfile` |
 | `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM | Docker Hub, pinned digest |

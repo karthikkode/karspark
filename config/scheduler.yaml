@@ -12,5 +12,8 @@ job_timeout_s:                            # running time limit per job (paused t
   upscale_image: 900
   upscale_video: 3600
   speech: 3600
+thermal:                                  # hottest ACPI thermal zone (nvidia-smi reads 8-15 C lower); docs/lessons.md
+  start_below_c: 80                       # media jobs start only below this (cool-down between jobs)
+  pause_c: 92                             # a running media job pauses at its next step (progress kept), resumes once cool
 bodies_days: 30                           # request/response bodies in logs.db
 meta_days: 365                            # request metadata and events

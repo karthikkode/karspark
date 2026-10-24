@@ -39,6 +39,7 @@ config/               modes.yaml (engines loaded together), tiers.yaml (key tier
 recipes/<model>/      README.md (weights repo + revision, recipe table, measurements) + one <recipe>.yaml per recipe
 engines/<engine>/     README.md (pinned image digest / version) + Dockerfile for any custom image
 spark-bin/            tools copied to ~/bin on deploy
+host/                 the only host-level files (systemd units the owner installs with sudo; host/README.md)
 scripts/              deploy.sh, build-images.sh, karspark-keys, fetch-model.sh, fetch-pth.sh, status.sh, ...
 docs/registry.md      what is deployed, measured numbers, status
 ```
