@@ -408,9 +408,7 @@ def build_upscale_image(params, inputs, ctx):
         img = _seedvr2(g, g.out(src), model, scale, params, video=False)
     else:
         gan = g.add("UpscaleModelLoader", model_name=GAN_FILES.get(model, ESRGAN_ANIME))
-        img = g.add("KarsparkUpscaleWithModel", upscale_model=g.out(gan), image=g.out(src))
-        if scale != 4:
-            img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
+        img = g.add("KarsparkUpscaleWithModel", upscale_model=g.out(gan), image=g.out(src), rescale=min(1.0, scale / 4))
         if model == "flux2-refine":
             img = _flux2_refine(g, img, params)
     g.add("SaveImage", images=g.out(img), filename_prefix=g.prefix("upscale"))
@@ -438,7 +436,7 @@ def _flux2_refine(g, img, params):
 def build_upscale_video(params, inputs, ctx):
     """Upscale a video, keeping its audio track (if any) and frame rate. "scale" defaults to 2.
       seedvr2-3b (default) / seedvr2-7b / seedvr2-7b-sharp   SeedVR2 restoration; adds texture (real footage)
-      esrgan-anime   RealESRGAN x4plus anime 6B per frame, then lanczos to "scale". Clean lines, no new detail,
+      esrgan-anime   RealESRGAN x4plus anime 6B per frame, then a GPU resize to "scale". Clean lines, no new detail,
                      fast: the anime path to 4K (720p x3). The 4x frames are held at once (~170 MB a frame at
                      1280x704), so keep clips under ~8 s at 720p.
       esrgan-animevideo   the same with realesr-animevideov3 (Real-ESRGAN compact, made for anime video): ~10x
@@ -450,9 +448,7 @@ def build_upscale_video(params, inputs, ctx):
     parts = g.add("GetVideoComponents", video=g.out(g.add("LoadVideo", file=inputs["video"])))
     if params["model"] in GAN_FILES:
         gan = g.add("UpscaleModelLoader", model_name=GAN_FILES[params["model"]])
-        img = g.add("KarsparkUpscaleWithModel", upscale_model=g.out(gan), image=g.out(parts, 0))
-        if scale != 4:
-            img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
+        img = g.add("KarsparkUpscaleWithModel", upscale_model=g.out(gan), image=g.out(parts, 0), rescale=min(1.0, scale / 4))
     else:
         img = _seedvr2(g, g.out(parts, 0), params["model"], scale, params, video=True)
     v = g.add("CreateVideo", images=g.out(img), fps=g.out(parts, 2), audio=g.out(parts, 1), bit_depth=8)

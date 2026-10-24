@@ -222,9 +222,12 @@ class KarsparkUpscaleWithModel:
 
     @classmethod
     def INPUT_TYPES(cls):
-        return {"required": {"upscale_model": ("UPSCALE_MODEL",), "image": ("IMAGE",)}}
+        return {"required": {"upscale_model": ("UPSCALE_MODEL",), "image": ("IMAGE",)},
+                "optional": {"rescale": ("FLOAT", {"default": 1.0, "min": 0.05, "max": 1.0, "step": 0.001})}}
 
-    def upscale(self, upscale_model, image):
+    def upscale(self, upscale_model, image, rescale=1.0):
+        """rescale < 1 resizes each upscaled frame on the GPU (antialiased bicubic), e.g. 0.75 for x4 -> x3. ComfyUI's
+        ImageScaleBy lanczos runs per frame on the CPU: ~75 s of a 125 s 4K clip."""
         mm = comfy.model_management
         mm.load_models_gpu([upscale_model.patcher], memory_required=image.nelement() * 2 * 64, force_full_load=True)
         device = upscale_model.patcher.load_device
@@ -235,7 +238,8 @@ class KarsparkUpscaleWithModel:
         out_device = mm.intermediate_device()
         frames = image[..., :3].movedim(-1, -3)
         n, _, h, w = frames.shape
-        out = torch.empty((n, 3, h * scale, w * scale), dtype=mm.intermediate_dtype(), device=out_device)
+        oh, ow = round(h * scale * rescale), round(w * scale * rescale)
+        out = torch.empty((n, 3, oh, ow), dtype=mm.intermediate_dtype(), device=out_device)
         pbar = comfy.utils.ProgressBar(n)
         tile = max(h, w)
         try:
@@ -256,6 +260,8 @@ class KarsparkUpscaleWithModel:
                             tile = min(tile, 1024) // 2
                             if tile < 128:
                                 raise
+                    if (y.shape[-2], y.shape[-1]) != (oh, ow):
+                        y = torch.nn.functional.interpolate(y.float(), size=(oh, ow), mode="bicubic", antialias=True)
                     out[i] = torch.clamp(y[0].float(), 0, 1).to(out_device, out.dtype)
                     pbar.update(1)
         finally:

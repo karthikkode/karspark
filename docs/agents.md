@@ -86,6 +86,7 @@ Measured on the box where a number is given; the rest is measured in phase 0 and
 | FLUX.2 keyframe with a reference image, 1280x704, in a batch | ComfyUI | 63–65 s each |
 | speech, IndexTTS-2.5 | ComfyUI | ~0.9 s per second of audio; ~53 s worker load on the first job |
 | `esrgan-anime` video ×3 (1280x704 → 3840x2112), ~5 s clip | ComfyUI | 205–224 s (r9) |
+| `esrgan-animevideo` video ×3, same clip (a little softer, the fast 4K path) | ComfyUI | 53–56 s (r11) |
 | **a narrated anime film, 720p** | all | **~40 min of GPU per minute of film** (5 min: 60 keyframes 63 min + 60 clips ~2 h + narration and planning); 4K adds ~45 min per minute |
 | SeedVR2-3B video upscale ×2 | ComfyUI | ~300 s for a 3 s clip, 5× slower than generating it: upscale finals only |
 
@@ -101,7 +102,8 @@ once real runs exist.
 4. `wait_job` each one; show the user; regenerate rejects with the same seed and an edited prompt.
 5. Submit every shot as `generate_video(prompt, first_frame=A, last_frame=B, wait_s=0)`.
 6. Upscale the approved shots last (`upscale_video`), in one batch. For anime, `model="esrgan-anime", scale=3`
-   takes LTX's 1280x704 to 3840x2112 (4K width) with clean lines; SeedVR2 adds photographic texture to flat shading.
+   takes LTX's 1280x704 to 3840x2112 (4K width) with clean lines; `esrgan-animevideo` is ~4x faster and a little
+   softer (the fast 4K path); SeedVR2 adds photographic texture to flat shading.
 
 **Bulk generation from a service (HTTP or SDK).** Use a `batch` key, P3, a webhook and an idempotency key
 per item (for example `"<dataset>-<row>-v1"`). Submit the whole set; karspark spreads it over idle time.

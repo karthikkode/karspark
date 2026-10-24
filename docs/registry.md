@@ -36,7 +36,7 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 | `qwen3.8-flash:vllm-salient` | `qwen3.8-flash` | 10011 | `nvidia/Qwen3.8-Flash-Next-NVFP4@fc694b54` | vllm-salient 2026-10-14-77154ca6 | 73.5 GiB weights + 13.6 GiB KV | 265 s cold (core) | **deployed**: 70.6 tok/s 1-stream, 100 tok/s total @8 |
 | `qwen3.8-27b:vllm` | `qwen3.8-27b` | 10030 | `unsloth/Qwen3.8-27B-NVFP4@f0b7c9e7` | vllm-salient (confirmed: loads as Qwen3-VL, so it has vision) | 0.31 util ≈ 38 GiB (21.9 GiB weights), 256K ctx | 249 s cold (at 128K) | **deployed** in `creative`; won the bake-off: tool steps 18/18, median 23.8 tok/s |
 | `muse-glimmer-30b:vllm-dflash` | `muse-glimmer-30b` | 10031 | `nvidia/Muse-Glimmer-30B-NVFP4@47818374` + drafter `meta-models/Muse-Glimmer-30B-assistant@c676cce9` | vllm-salient (model, parsers and DFlash confirmed in the image) | 0.30 util ≈ 36 GiB (30.5 GiB actual) | 273 s cold | **benched, in no mode**: lost the bake-off on tool steps (12/18). Better prose, 29.1 tok/s median |
-| `comfyui:comfy` | `flux2-dev`, `qwen-image-layered`, `ltx-2.5`, `seedvr2-7b`, `seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime`, `esrgan-animevideo`, `indextts-2.5` (speech) | 10020 | below | `karspark/comfyui:0.42.4-r10` | ≤ 75 GiB (one model family at a time) | 10 s | **deployed**: FLUX 1280x720 29 s warm (66 s cold, 98 s with a reference after a swap); layers ×4 at 640 164 s; SeedVR2-7B image ×2 15 s; flux2-refine ×2 ok; LTX t2v 3 s 768x512 56 s (silent); LTX i2v ~5 s 1280x704 97 s avg (60 clips); esrgan-anime video ×3 ~5 s clip 205–224 s (r9); SeedVR2-3B video ×2 296 s; pause/resume pixel-identical |
+| `comfyui:comfy` | `flux2-dev`, `qwen-image-layered`, `ltx-2.5`, `seedvr2-7b`, `seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime`, `esrgan-animevideo`, `indextts-2.5` (speech) | 10020 | below | `karspark/comfyui:0.42.4-r11` | ≤ 75 GiB (one model family at a time) | 10 s | **deployed**: FLUX 1280x720 29 s warm (66 s cold, 98 s with a reference after a swap); layers ×4 at 640 164 s; SeedVR2-7B image ×2 15 s; flux2-refine ×2 ok; LTX t2v 3 s 768x512 56 s (silent); LTX i2v ~5 s 1280x704 97 s avg (60 clips); esrgan-anime video ×3 ~5 s clip 205–224 s (r9); esrgan-animevideo ×3 53–56 s (r11); SeedVR2-3B video ×2 296 s; pause/resume pixel-identical |
 | `qwen3-0.6b:vllm` | `qwen3-0.6b` | 10002 | `Qwen/Qwen3-0.6B@c1899de2` | vLLM 0.32.0 | ~13 GiB (0.08 util) | ~112 s cold | deployed 2026-10-22 (test) |
 
 ## Weights on disk
@@ -68,7 +68,7 @@ Everything runs in Docker. Nothing is installed on the host except Docker itself
 | image | what | built from |
 |---|---|---|
 | `karspark/core:0.1.0-r16` | karspark-core (FastAPI, scheduler, MCP) + docker CLI | `core/Dockerfile` |
-| `karspark/comfyui:0.42.4-r10` | ComfyUI + torch 2.13 cu130 + karspark job adapter + pausable sampler nodes + IndexTTS-2.5 worker (own venv, transformers 4.52) | `engines/comfyui/Dockerfile` |
+| `karspark/comfyui:0.42.4-r11` | ComfyUI + torch 2.13 cu130 + karspark job adapter + pausable sampler nodes + IndexTTS-2.5 worker (own venv, transformers 4.52) | `engines/comfyui/Dockerfile` |
 | `karspark/vllm-salient:2026-10-14-77154ca6` | vLLM nightly + 14 Flash-Next patches | `engines/vllm-salient/upstream/Dockerfile` |
 | `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM | Docker Hub, pinned digest |
 | `karspark/hf-cli:2.2.0-xet1.7.0` | model downloads | `engines/hf-cli/Dockerfile` |

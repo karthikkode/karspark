@@ -1,6 +1,6 @@
 # comfyui (images, layers, video, speech)
 
-One container, `karspark/comfyui:0.42.4-r10` ([engine](../../engines/comfyui/README.md)), serves every
+One container, `karspark/comfyui:0.42.4-r11` ([engine](../../engines/comfyui/README.md)), serves every
 diffusion model. Weights are read-only from `~/models` via `extra_model_paths.yaml`. The graphs live in
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
@@ -104,7 +104,7 @@ tools with the parameters below.
   before trusting it there. `flux2-refine` is the safe path for character art: RealESRGAN-anime to the
   target size, then FLUX.2 Turbo at denoise 0.35 (about 4 of 12 steps). Video: LTX-2.5 already renders
   at half size and upscales 2× itself, so SeedVR2 is for going past 720p. `esrgan-anime` on video (r8) runs
-  RealESRGAN per frame and then lanczos to the scale: no diffusion and no new texture, the anime path to 4K. It holds
+  RealESRGAN per frame and then a GPU resize to the scale (r11): no diffusion and no new texture, the anime path to 4K. It holds
   every 4x frame at once (~170 MB each at 1280x704), so clips over ~8 s at 720p risk running out of memory.
 
 Runs in mode `creative` with the planner (111 GiB together). ComfyUI loads weights on demand, and core frees the
@@ -119,6 +119,7 @@ Qwen-Image-Layered, and 40 GB for LTX-2.5.
 | LTX-2.5 image-to-video, ~5 s at 1280x704, silent | 83–132 s, 97 s average; the same average with the 2200 MHz clock cap |
 | IndexTTS-2.5 narration | 254 s for 292 s of audio (0.87x real time), worker load ~53 s |
 | `esrgan-anime` video ×3 to 3840x2112, ~5 s clip | 339 s on r8 (stock fp32 tiles), 205–224 s on r9 |
+| `esrgan-animevideo` video ×3, same clips | 120–131 s on r10 (CPU lanczos), 53–56 s on r11 (GPU resize) |
 
 The GPU ran at 82–90 C with the hottest ACPI zone at 90–97 C during back-to-back LTX clips. That run ended in a
 hard power-off (docs/lessons.md).
