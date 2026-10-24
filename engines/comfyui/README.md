@@ -17,6 +17,7 @@ Image `karspark/comfyui:0.42.4-r8`, built by `scripts/build-images.sh` from the 
   same job again skips finished stages (`*.done.pt`) and continues the interrupted one from its saved step
   (ancestral noise is fast-forwarded, so the result matches an uninterrupted run)
 - r8: `upscale_video` takes `esrgan-anime` (RealESRGAN per frame, then lanczos; the anime path to 4K).
+  Checkpoints are fsynced before the rename, and an unreadable one (a power cut) is set aside and its stage redone.
 - `tts/`: the IndexTTS-2.5 speech worker (r7). Upstream `index-tts` at `d9e41aac` (laptop-fetched tarball)
   in `/opt/indextts`, its runtime in `/opt/tts/venv` (`--system-site-packages`: it reuses the image's torch,
   but has its own transformers 4.52.1, which IndexTTS pins and ComfyUI's 5.x can't replace). Two upstream

@@ -38,9 +38,32 @@ def _call_index(run_id, stage):
 
 
 def _atomic_save(obj, path: Path):
+    """Write, fsync, rename, fsync the folder: a power cut leaves the old file or the new one, never an empty
+    one (the box once lost power mid-run and the renamed checkpoint was empty: docs/lessons.md)."""
     tmp = path.with_suffix(path.suffix + ".tmp")
-    torch.save(obj, tmp)
+    with open(tmp, "wb") as f:
+        torch.save(obj, f)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, path)
+    fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _load(path: Path):
+    """A checkpoint, or None if it is missing or unreadable (cut short by a power loss). An unreadable one is
+    set aside and the stage runs again from its start; seeds are fixed, so the output is the same."""
+    if not path.exists():
+        return None
+    try:
+        return torch.load(path, weights_only=False)
+    except Exception as e:
+        print(f"[karspark] unreadable checkpoint {path.name} ({type(e).__name__}: {e}); redoing that stage", flush=True)
+        os.replace(path, path.with_suffix(path.suffix + ".bad"))
+        return None
 
 
 def _to_cpu(x):
@@ -147,11 +170,11 @@ class KarsparkSampler:
         name = f"{stage}.{_call_index(run_id, stage)}"
         done_path, state_path = ckpt / f"{name}.done.pt", ckpt / f"{name}.pause.pt"
 
-        if done_path.exists():
-            out = torch.load(done_path, weights_only=False)
+        out = _load(done_path)
+        if out is not None:
             return (out, out)
 
-        resume = torch.load(state_path, weights_only=False) if state_path.exists() else None
+        resume = _load(state_path)
         if resume is None and (job / "PAUSE").exists():
             # Paused between stages (e.g. during a decode): stop before this stage starts. Nothing is lost.
             raise comfy.model_management.InterruptProcessingException()
