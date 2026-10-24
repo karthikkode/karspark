@@ -95,7 +95,8 @@ once real runs exist.
 3. Submit every keyframe as `generate_image(..., reference_images=[file_id], seed=S, wait_s=0)`.
 4. `wait_job` each one; show the user; regenerate rejects with the same seed and an edited prompt.
 5. Submit every shot as `generate_video(prompt, first_frame=A, last_frame=B, wait_s=0)`.
-6. Upscale the approved shots last (`upscale_video`), in one batch.
+6. Upscale the approved shots last (`upscale_video`), in one batch. For anime, `model="esrgan-anime", scale=3`
+   takes LTX's 1280x704 to 3840x2112 (4K width) with clean lines; SeedVR2 adds photographic texture to flat shading.
 
 **Bulk generation from a service (HTTP or SDK).** Use a `batch` key, P3, a webhook and an idempotency key
 per item (for example `"<dataset>-<row>-v1"`). Submit the whole set; karspark spreads it over idle time.

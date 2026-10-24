@@ -126,7 +126,8 @@ def build_mcp(k) -> MCPServer:
                                  "duration": duration, "size": size, "fps": fps, "audio": audio, "seed": seed,
                                  "priority": priority, "idempotency_key": idempotency_key}, wait_s)
 
-    @mcp.tool(description="Upscale a video with SeedVR2 (default seedvr2-3b; seedvr2-7b for hero shots), keeping fps.")
+    @mcp.tool(description="Upscale a video, keeping fps. model: seedvr2-3b (default), seedvr2-7b (hero shots), "
+                          "esrgan-anime (anime: clean lines, fast; scale 3 takes 720p to 4K; clips under ~8 s). scale 1-4.")
     async def upscale_video(ctx: Context, video: str, model: str = "seedvr2-3b", scale: float = 2,
                             priority: int | None = None,
                             idempotency_key: str | None = None, wait_s: float = 50):

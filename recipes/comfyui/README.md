@@ -1,6 +1,6 @@
 # comfyui (images, layers, video, speech)
 
-One container, `karspark/comfyui:0.42.4-r7` ([engine](../../engines/comfyui/README.md)), serves every
+One container, `karspark/comfyui:0.42.4-r8` ([engine](../../engines/comfyui/README.md)), serves every
 diffusion model. Weights are read-only from `~/models` via `extra_model_paths.yaml`. The graphs live in
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
@@ -74,6 +74,7 @@ tools with the parameters below.
 
 ```jsonc
 {"model": "seedvr2-3b", "video": "<base64 mp4>", "scale": 2}            // seedvr2-7b for hero shots
+{"model": "esrgan-anime", "video": "<base64 mp4>", "scale": 3}          // anime to 4K: 1280x704 -> 3840x2112
 ```
 
 
@@ -101,7 +102,9 @@ tools with the parameters below.
   learned mostly from real footage and can add texture to flat anime shading, so try it on our anime
   before trusting it there. `flux2-refine` is the safe path for character art: RealESRGAN-anime to the
   target size, then FLUX.2 Turbo at denoise 0.35 (about 4 of 12 steps). Video: LTX-2.5 already renders
-  at half size and upscales 2× itself, so SeedVR2 is for going past 720p.
+  at half size and upscales 2× itself, so SeedVR2 is for going past 720p. `esrgan-anime` on video (r8) runs
+  RealESRGAN per frame and then lanczos to the scale: no diffusion and no new texture, the anime path to 4K. It holds
+  every 4x frame at once (~170 MB each at 1280x704), so clips over ~8 s at 720p risk running out of memory.
 
 Runs in mode `creative` with the planner (111 GiB together). ComfyUI loads weights on demand, and core frees the
 previous family before a different one runs: about 34 GB for FLUX.2, 30 GB for

@@ -82,7 +82,7 @@ MODELS = {
     "layers": ["qwen-image-layered"],
     "video": ["ltx-2.5"],
     "upscale_image": ["seedvr2-7b", "seedvr2-7b-sharp", "seedvr2-3b", "flux2-refine", "esrgan-anime"],
-    "upscale_video": ["seedvr2-3b", "seedvr2-7b", "seedvr2-7b-sharp"],
+    "upscale_video": ["seedvr2-3b", "seedvr2-7b", "seedvr2-7b-sharp", "esrgan-anime"],
     "speech": ["indextts-2.5"],
 }
 
@@ -432,14 +432,22 @@ def _flux2_refine(g, img, params):
 
 
 def build_upscale_video(params, inputs, ctx):
-    """Upscale a video with SeedVR2 (default seedvr2-3b; seedvr2-7b for hero shots), keeping its audio
-    track (if any) and frame rate. "scale" defaults to 2. Use it past LTX-2.5's own 720p (720p -> 1440p)."""
+    """Upscale a video, keeping its audio track (if any) and frame rate. "scale" defaults to 2.
+      seedvr2-3b (default) / seedvr2-7b / seedvr2-7b-sharp   SeedVR2 restoration; adds texture (real footage)
+      esrgan-anime   RealESRGAN x4plus anime 6B per frame, then lanczos to "scale". Clean lines, no new detail,
+                     fast: the anime path to 4K (720p x3). The 4x frames are held at once (~170 MB a frame at
+                     1280x704), so keep clips under ~8 s at 720p."""
     if not inputs.get("video"):
         raise WorkflowError("video is required")
     scale = _scale(params, 2)
     g = Graph(ctx)
     parts = g.add("GetVideoComponents", video=g.out(g.add("LoadVideo", file=inputs["video"])))
-    img = _seedvr2(g, g.out(parts, 0), params["model"], scale, params, video=True)
+    if params["model"] == "esrgan-anime":
+        gan = g.add("UpscaleModelLoader", model_name=ESRGAN_ANIME)
+        img = g.add("ImageUpscaleWithModel", upscale_model=g.out(gan), image=g.out(parts, 0))
+        img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
+    else:
+        img = _seedvr2(g, g.out(parts, 0), params["model"], scale, params, video=True)
     v = g.add("CreateVideo", images=g.out(img), fps=g.out(parts, 2), audio=g.out(parts, 1), bit_depth=8)
     g.add("SaveVideo", video=g.out(v), filename_prefix=g.prefix("upscale"), format="auto", **{"format.codec": "auto"})
     return g.nodes
