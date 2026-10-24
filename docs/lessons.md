@@ -50,6 +50,9 @@ history at commit `f64547d`.
   rename, and sets an unreadable one aside and redoes that stage.
   Read the ACPI zones: nvidia-smi read 8-15 C under them. A client-side "wait below 70 C on nvidia-smi" guard
   did not prevent this crash.
+- **Don't restart core during a mode switch.** A deploy in the middle of a switch to creative brought core back to
+  the saved mode, coding, and it reloaded Flash-Next (2026-10-24, about 10 min lost). `deploy.sh` now waits for
+  `/health` to show no switch before it restarts core.
 - Llama + vLLM `llama3_json` allows only one tool call per turn, which is a bad fit for parallel-tool agents.
 
 ## Images (ComfyUI)

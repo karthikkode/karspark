@@ -66,6 +66,14 @@ if (( CUTOVER )); then
 fi
 
 echo "== unit"
+# A restart during a mode switch loses the switch target: core comes back to the saved mode and reloads it
+# (2026-10-24: a deploy mid-switch to creative reloaded Flash-Next). Wait for a running switch to finish.
+for i in $(seq 1 120); do
+  sw="$(ssh "$HOST" 'curl -s -m5 localhost:8080/health' | python3 -c 'import json,sys; print(json.load(sys.stdin).get("switching") or "")' 2>/dev/null || true)"
+  [ -z "$sw" ] && break
+  (( i == 1 )) && echo "   a mode switch to $sw is running; waiting for it before restarting core"
+  sleep 10
+done
 scp -q "$ROOT/core/karspark-core.service" "$HOST:core/karspark-core.service.new"
 ssh "$HOST" "unit=~/.config/systemd/user/karspark-core.service
   if cmp -s ~/core/karspark-core.service.new \$unit && [ $CHANGED = 0 ] \
