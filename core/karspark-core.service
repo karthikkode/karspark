@@ -15,7 +15,7 @@ ExecStart=/usr/bin/docker run --rm --name karspark-core --init --network host \
   -v %h/core/config:/opt/karspark:ro -v %h/data:/data \
   --env-file %h/core/env \
   -e KARSPARK_MODELS=%h/models -e KARSPARK_ENGINES=%h/engines -e KARSPARK_HOST_DATA=%h/data \
-  karspark/core:0.1.0-r15
+  karspark/core:0.1.0-r16
 ExecStop=/usr/bin/docker stop -t 30 karspark-core
 Restart=always
 RestartSec=5

@@ -58,6 +58,7 @@ CASES = [
     ("video upscale seedvr2-3b", "upscale_video", {}, {"video": CLIP}),
     ("video upscale seedvr2-7b", "upscale_video", {"model": "seedvr2-7b", "scale": 1.5}, {"video": CLIP}),
     ("video upscale esrgan-anime x3", "upscale_video", {"model": "esrgan-anime", "scale": 3}, {"video": CLIP}),
+    ("video upscale esrgan-animevideo x4", "upscale_video", {"model": "esrgan-animevideo", "scale": 4}, {"video": CLIP}),
 ]
 SPEECH_CASES = [   # (label, params, inputs, should be rejected)
     ("speech narrator", {"text": "Once upon a time."}, {}, False),

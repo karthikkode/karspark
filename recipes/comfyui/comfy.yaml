@@ -4,7 +4,7 @@
 # Jobs live in ${data}/jobs, shared with core: inputs, outputs and pause checkpoints.
 kind: media
 capabilities: [image, layers, video, upscale_image, upscale_video, speech]
-models: [flux2-dev, qwen-image-layered, ltx-2.5, seedvr2-7b, seedvr2-7b-sharp, seedvr2-3b, flux2-refine, esrgan-anime, indextts-2.5]
+models: [flux2-dev, qwen-image-layered, ltx-2.5, seedvr2-7b, seedvr2-7b-sharp, seedvr2-3b, flux2-refine, esrgan-anime, esrgan-animevideo, indextts-2.5]
 port: 10020
 memory_gib: 75           # LTX-2.5 + Gemma TE ~40 GB, FLUX.2 ~34 GB; ComfyUI holds one family at a time (core calls /v1/free between families)
 slots: 1
@@ -17,4 +17,4 @@ run: |
   -v ${data}/jobs:/jobs
   -e HF_HUB_OFFLINE=1
   -e 'COMFY_ARGS=--disable-pinned-memory --reserve-vram 4'
-  karspark/comfyui:0.42.4-r9
+  karspark/comfyui:0.42.4-r10

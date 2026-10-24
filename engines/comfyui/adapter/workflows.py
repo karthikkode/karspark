@@ -48,6 +48,8 @@ SEEDVR2 = {
 }
 SEEDVR2_VAE = "seedvr2_ema_vae_fp16.safetensors"
 ESRGAN_ANIME = "RealESRGAN_x4plus_anime_6B.safetensors"
+ESRGAN_ANIME_VIDEO = "realesr-animevideov3.safetensors"   # Real-ESRGAN compact, built for anime video
+GAN_FILES = {"esrgan-anime": ESRGAN_ANIME, "esrgan-animevideo": ESRGAN_ANIME_VIDEO}
 
 # Distilled schedules, verbatim from the LTX-2.5 templates.
 LTX_SIGMAS_STAGE1 = "1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0"
@@ -81,8 +83,8 @@ MODELS = {
     "image": ["flux2-dev"],
     "layers": ["qwen-image-layered"],
     "video": ["ltx-2.5"],
-    "upscale_image": ["seedvr2-7b", "seedvr2-7b-sharp", "seedvr2-3b", "flux2-refine", "esrgan-anime"],
-    "upscale_video": ["seedvr2-3b", "seedvr2-7b", "seedvr2-7b-sharp", "esrgan-anime"],
+    "upscale_image": ["seedvr2-7b", "seedvr2-7b-sharp", "seedvr2-3b", "flux2-refine", "esrgan-anime", "esrgan-animevideo"],
+    "upscale_video": ["seedvr2-3b", "seedvr2-7b", "seedvr2-7b-sharp", "esrgan-anime", "esrgan-animevideo"],
     "speech": ["indextts-2.5"],
 }
 
@@ -394,7 +396,8 @@ def build_upscale_image(params, inputs, ctx):
       flux2-refine   anime-safe: RealESRGAN-anime to the target size, then FLUX.2 Turbo img2img at low denoise
                      (default 0.35), so lines, shading and the character stay FLUX.2's own. Optional
                      "prompt" (describe the image) and "loras" (the character LoRA)
-      esrgan-anime   RealESRGAN x4plus anime 6B, then resized to "scale". Instant, no new detail"""
+      esrgan-anime   RealESRGAN x4plus anime 6B, then resized to "scale". Instant, no new detail
+      esrgan-animevideo   realesr-animevideov3 (compact, ~10x faster, a little softer)"""
     model = params["model"]
     if not inputs.get("image"):
         raise WorkflowError("image is required")
@@ -404,9 +407,10 @@ def build_upscale_image(params, inputs, ctx):
     if model in SEEDVR2:
         img = _seedvr2(g, g.out(src), model, scale, params, video=False)
     else:
-        gan = g.add("UpscaleModelLoader", model_name=ESRGAN_ANIME)
+        gan = g.add("UpscaleModelLoader", model_name=GAN_FILES.get(model, ESRGAN_ANIME))
         img = g.add("KarsparkUpscaleWithModel", upscale_model=g.out(gan), image=g.out(src))
-        img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
+        if scale != 4:
+            img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
         if model == "flux2-refine":
             img = _flux2_refine(g, img, params)
     g.add("SaveImage", images=g.out(img), filename_prefix=g.prefix("upscale"))
@@ -436,16 +440,19 @@ def build_upscale_video(params, inputs, ctx):
       seedvr2-3b (default) / seedvr2-7b / seedvr2-7b-sharp   SeedVR2 restoration; adds texture (real footage)
       esrgan-anime   RealESRGAN x4plus anime 6B per frame, then lanczos to "scale". Clean lines, no new detail,
                      fast: the anime path to 4K (720p x3). The 4x frames are held at once (~170 MB a frame at
-                     1280x704), so keep clips under ~8 s at 720p."""
+                     1280x704), so keep clips under ~8 s at 720p.
+      esrgan-animevideo   the same with realesr-animevideov3 (Real-ESRGAN compact, made for anime video): ~10x
+                     faster, a little softer. scale 4 takes 960x544 to 3840x2176."""
     if not inputs.get("video"):
         raise WorkflowError("video is required")
     scale = _scale(params, 2)
     g = Graph(ctx)
     parts = g.add("GetVideoComponents", video=g.out(g.add("LoadVideo", file=inputs["video"])))
-    if params["model"] == "esrgan-anime":
-        gan = g.add("UpscaleModelLoader", model_name=ESRGAN_ANIME)
+    if params["model"] in GAN_FILES:
+        gan = g.add("UpscaleModelLoader", model_name=GAN_FILES[params["model"]])
         img = g.add("KarsparkUpscaleWithModel", upscale_model=g.out(gan), image=g.out(parts, 0))
-        img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
+        if scale != 4:
+            img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
     else:
         img = _seedvr2(g, g.out(parts, 0), params["model"], scale, params, video=True)
     v = g.add("CreateVideo", images=g.out(img), fps=g.out(parts, 2), audio=g.out(parts, 1), bit_depth=8)

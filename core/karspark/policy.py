@@ -32,7 +32,7 @@ def family(model: str) -> str | None:
     """ComfyUI model families: switching family costs a 30-60 s weight load; None = negligible."""
     if model.startswith("flux2"):
         return "flux2"
-    if model == "esrgan-anime":
+    if model in ("esrgan-anime", "esrgan-animevideo"):
         return None
     return model or None
 

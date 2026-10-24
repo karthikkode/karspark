@@ -1,6 +1,6 @@
 # comfyui (images, layers, video, speech)
 
-One container, `karspark/comfyui:0.42.4-r9` ([engine](../../engines/comfyui/README.md)), serves every
+One container, `karspark/comfyui:0.42.4-r10` ([engine](../../engines/comfyui/README.md)), serves every
 diffusion model. Weights are read-only from `~/models` via `extra_model_paths.yaml`. The graphs live in
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
@@ -18,6 +18,7 @@ tools with the parameters below.
 | `qwen-image-layered` | splits an image into RGBA layers (input for the parallax pipeline). fp8mixed | `Comfy-Org/Qwen-Image-Layered_ComfyUI` → `~/models/image/qwen-image-layered-comfy`; Qwen2.5-VL 7B fp8 TE from `Comfy-Org/Qwen-Image_ComfyUI` → `~/models/image/qwen-image-te` | `02130716`, `1f12b17b` |
 | `ltx-2.5` | LTX-2.5 22B distilled (int8-convrot), text-to-video, image-to-video, first + last frame. Silent by default | `Lightricks/LTX-2.5` → `~/models/video/ltx-2.5` (Gemma-4 12B int8 TE, video/audio VAE, 2× latent upscaler) | `49b093a3` |
 | `seedvr2-7b`, `seedvr2-7b-sharp`, `seedvr2-3b` | SeedVR2 one-step upscaler for images and video (7B fp16 = best quality, 7B sharp int8 = more detail, 3B fp16 = faster, video default) | `Comfy-Org/SeedVR2` → `~/models/image/seedvr2` | `df488797` |
+| `esrgan-animevideo` | realesr-animevideov3, Real-ESRGAN's compact model for anime video: ~10x faster than `esrgan-anime`, a little softer | official GitHub release v0.2.5.0 (sha256 `b8a8376811077954d82ca3fcf476f1ac3da3e8a68a4f4d71363008000a18b75d`), `scripts/fetch-pth.sh` → `~/models/image/upscale-gan` |
 | `esrgan-anime` (also the first step of `flux2-refine`) | RealESRGAN x4plus anime 6B. Instant, adds no detail | official GitHub release v0.2.2.4, converted to safetensors by `scripts/fetch-pth.sh` → `~/models/image/upscale-gan` | sha256 `f872d837…` (.pth) |
 | character LoRAs | for `flux2-dev` | `~/models/image/loras/<name>.safetensors` | ours |
 | `indextts-2.5` | IndexTTS-2.5 zero-shot TTS (bf16): text → narration WAV in a cloned voice. Not a ComfyUI graph: the adapter runs it in a worker process with its own venv, and `/v1/free` stops it like any family swap | `IndexTeam/IndexTTS-2.5` → `~/models/audio/indextts-2.5` (no `qwen0.6bemo4-merge`: emotion-from-text is off); `facebook/w2v-bert-2.0` → `~/models/audio/w2v-bert-2.0`; `funasr/campplus` → `~/models/audio/campplus`; `nvidia/bigvgan_v2_22khz_80band_256x` (generator only) → `~/models/audio/bigvgan-v2-22khz` | `c39ce5ba`, `da985ba0`, `e4b6ede7`, `633ff708` |

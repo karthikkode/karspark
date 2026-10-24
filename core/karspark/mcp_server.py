@@ -107,7 +107,7 @@ def build_mcp(k) -> MCPServer:
                                  "idempotency_key": idempotency_key}, wait_s)
 
     @mcp.tool(description="Upscale an image. model: seedvr2-7b (default, best), seedvr2-7b-sharp, seedvr2-3b, "
-                          "flux2-refine (anime-safe; optional prompt/loras), esrgan-anime (instant). scale 1-4.")
+                          "flux2-refine (anime-safe; optional prompt/loras), esrgan-anime (instant), esrgan-animevideo (faster, softer). scale 1-4.")
     async def upscale_image(ctx: Context, image: str, model: str = "seedvr2-7b", scale: float = 2,
                             prompt: str | None = None, loras: list[dict] | None = None, priority: int | None = None,
                             idempotency_key: str | None = None, wait_s: float = 50):
@@ -127,7 +127,8 @@ def build_mcp(k) -> MCPServer:
                                  "priority": priority, "idempotency_key": idempotency_key}, wait_s)
 
     @mcp.tool(description="Upscale a video, keeping fps. model: seedvr2-3b (default), seedvr2-7b (hero shots), "
-                          "esrgan-anime (anime: clean lines, fast; scale 3 takes 720p to 4K; clips under ~8 s). scale 1-4.")
+                          "esrgan-anime (anime: clean lines; scale 3 takes 720p to 4K; clips under ~8 s), "
+                          "esrgan-animevideo (anime video model, ~10x faster, a little softer). scale 1-4.")
     async def upscale_video(ctx: Context, video: str, model: str = "seedvr2-3b", scale: float = 2,
                             priority: int | None = None,
                             idempotency_key: str | None = None, wait_s: float = 50):
