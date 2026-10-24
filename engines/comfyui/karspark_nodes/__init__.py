@@ -1,4 +1,4 @@
-"""karspark ComfyUI nodes: sampling that can pause without losing progress.
+"""karspark ComfyUI nodes: sampling that can pause without losing progress, and a fast GAN upscaler.
 
 `KarsparkSampler` is `SamplerCustomAdvanced` plus three things, all keyed to a per-job directory that the
 adapter owns (`/jobs/<job_id>`, shared with karspark-core):
@@ -210,5 +210,59 @@ class KarsparkSampler:
         return (out, out)
 
 
-NODE_CLASS_MAPPINGS = {"KarsparkSampler": KarsparkSampler}
-NODE_DISPLAY_NAME_MAPPINGS = {"KarsparkSampler": "Karspark Sampler (pausable)"}
+class KarsparkUpscaleWithModel:
+    """`ImageUpscaleWithModel` in fp16, one whole frame per pass. The stock node forces fp32 and 512 px tiles:
+    on the GB10 RealESRGAN-anime ran 2.6 s a 1280x704 frame (fp16 is 1.85x faster with a mean difference of
+    0.0004, whole frames skip the ~1.7x tile overlap, and channels-last memory is another 1.5x). Real-ESRGAN's own
+    inference runs fp16 too. Falls back
+    to smaller tiles on OOM, and to fp32 for a model that can't run in half precision."""
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "upscale"
+    CATEGORY = "karspark"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"upscale_model": ("UPSCALE_MODEL",), "image": ("IMAGE",)}}
+
+    def upscale(self, upscale_model, image):
+        mm = comfy.model_management
+        mm.load_models_gpu([upscale_model.patcher], memory_required=image.nelement() * 2 * 64, force_full_load=True)
+        device = upscale_model.patcher.load_device
+        half = getattr(upscale_model, "supports_half", True) and device.type == "cuda"
+        net = (upscale_model.model.half() if half else upscale_model.model.float()).to(memory_format=torch.channels_last)
+        dtype = torch.float16 if half else torch.float32
+        scale = upscale_model.scale
+        out_device = mm.intermediate_device()
+        frames = image[..., :3].movedim(-1, -3)
+        n, _, h, w = frames.shape
+        out = torch.empty((n, 3, h * scale, w * scale), dtype=mm.intermediate_dtype(), device=out_device)
+        pbar = comfy.utils.ProgressBar(n)
+        tile = max(h, w)
+        try:
+            with torch.inference_mode():
+                for i in range(n):
+                    x = frames[i:i + 1].to(device, dtype).contiguous(memory_format=torch.channels_last)
+                    while True:
+                        try:
+                            if tile >= max(h, w):
+                                y = net(x)
+                            else:
+                                y = comfy.utils.tiled_scale(x, lambda a: net(a), tile_x=tile, tile_y=tile, overlap=32,
+                                                            upscale_amount=scale, output_device=device)
+                            break
+                        except Exception as e:
+                            mm.raise_non_oom(e)
+                            mm.soft_empty_cache()
+                            tile = min(tile, 1024) // 2
+                            if tile < 128:
+                                raise
+                    out[i] = torch.clamp(y[0].float(), 0, 1).to(out_device, out.dtype)
+                    pbar.update(1)
+        finally:
+            upscale_model.model.float().to(memory_format=torch.contiguous_format)
+        return (out.movedim(-3, -1),)
+
+
+NODE_CLASS_MAPPINGS = {"KarsparkSampler": KarsparkSampler, "KarsparkUpscaleWithModel": KarsparkUpscaleWithModel}
+NODE_DISPLAY_NAME_MAPPINGS = {"KarsparkSampler": "Karspark Sampler (pausable)",
+                              "KarsparkUpscaleWithModel": "Karspark Upscale with model (fp16, whole frames)"}

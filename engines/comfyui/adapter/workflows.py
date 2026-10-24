@@ -405,7 +405,7 @@ def build_upscale_image(params, inputs, ctx):
         img = _seedvr2(g, g.out(src), model, scale, params, video=False)
     else:
         gan = g.add("UpscaleModelLoader", model_name=ESRGAN_ANIME)
-        img = g.add("ImageUpscaleWithModel", upscale_model=g.out(gan), image=g.out(src))
+        img = g.add("KarsparkUpscaleWithModel", upscale_model=g.out(gan), image=g.out(src))
         img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
         if model == "flux2-refine":
             img = _flux2_refine(g, img, params)
@@ -444,7 +444,7 @@ def build_upscale_video(params, inputs, ctx):
     parts = g.add("GetVideoComponents", video=g.out(g.add("LoadVideo", file=inputs["video"])))
     if params["model"] == "esrgan-anime":
         gan = g.add("UpscaleModelLoader", model_name=ESRGAN_ANIME)
-        img = g.add("ImageUpscaleWithModel", upscale_model=g.out(gan), image=g.out(parts, 0))
+        img = g.add("KarsparkUpscaleWithModel", upscale_model=g.out(gan), image=g.out(parts, 0))
         img = g.add("ImageScaleBy", image=g.out(img), upscale_method="lanczos", scale_by=scale / 4)
     else:
         img = _seedvr2(g, g.out(parts, 0), params["model"], scale, params, video=True)

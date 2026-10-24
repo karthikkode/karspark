@@ -1,6 +1,6 @@
 # comfyui (images, layers, video, speech)
 
-One container, `karspark/comfyui:0.42.4-r8` ([engine](../../engines/comfyui/README.md)), serves every
+One container, `karspark/comfyui:0.42.4-r9` ([engine](../../engines/comfyui/README.md)), serves every
 diffusion model. Weights are read-only from `~/models` via `extra_model_paths.yaml`. The graphs live in
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
