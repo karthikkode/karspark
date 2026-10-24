@@ -109,3 +109,15 @@ tools with the parameters below.
 Runs in mode `creative` with the planner (111 GiB together). ComfyUI loads weights on demand, and core frees the
 previous family before a different one runs: about 34 GB for FLUX.2, 30 GB for
 Qwen-Image-Layered, and 40 GB for LTX-2.5.
+
+## Measured (2026-10-24, a 5 min narrated anime film: 60 shots, 304 s)
+
+| job | time |
+|---|---|
+| FLUX.2 keyframe, 1280x704, 12 steps, character sheet as reference | 63–65 s each (95 s for the first after a swap) |
+| LTX-2.5 image-to-video, ~5 s at 1280x704, silent | 83–132 s, 97 s average; the same average with the 2200 MHz clock cap |
+| IndexTTS-2.5 narration | 254 s for 292 s of audio (0.87x real time), worker load ~53 s |
+| `esrgan-anime` video ×3 to 3840x2112, ~5 s clip | 339 s on r8 (stock fp32 tiles), 205–224 s on r9 |
+
+The GPU ran at 82–90 C with the hottest ACPI zone at 90–97 C during back-to-back LTX clips. That run ended in a
+hard power-off (docs/lessons.md).

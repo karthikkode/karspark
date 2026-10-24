@@ -81,7 +81,12 @@ Measured on the box where a number is given; the rest is measured in phase 0 and
 | layer split, 4 layers at 640 | ComfyUI | ~165 s |
 | SeedVR2-7B image upscale ×2 | ComfyUI | ~15 s warm |
 | ComfyUI model-family swap (FLUX ↔ LTX ↔ SeedVR2 ↔ Qwen-Layered) | ComfyUI | 30–60 s |
-| LTX-2.5 video, 3 s 768x512 | ComfyUI | ~56 s (5 s 720p: longer, not measured yet) |
+| LTX-2.5 video, 3 s 768x512 | ComfyUI | ~56 s |
+| LTX-2.5 image-to-video, ~5 s 1280x704 | ComfyUI | 83–132 s, 97 s average over 60 clips (the same with the GPU clock cap) |
+| FLUX.2 keyframe with a reference image, 1280x704, in a batch | ComfyUI | 63–65 s each |
+| speech, IndexTTS-2.5 | ComfyUI | ~0.9 s per second of audio; ~53 s worker load on the first job |
+| `esrgan-anime` video ×3 (1280x704 → 3840x2112), ~5 s clip | ComfyUI | 205–224 s (r9) |
+| **a narrated anime film, 720p** | all | **~40 min of GPU per minute of film** (5 min: 60 keyframes 63 min + 60 clips ~2 h + narration and planning); 4K adds ~45 min per minute |
 | SeedVR2-3B video upscale ×2 | ComfyUI | ~300 s for a 3 s clip, 5× slower than generating it: upscale finals only |
 
 `GET /v1/mode` reports measured switch costs (`switch_costs_s`), and `eta_s` uses measured job durations
