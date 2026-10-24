@@ -5,7 +5,7 @@ Each one is installed by the owner with sudo; agents hand over the commands and 
 
 | file | what | installed |
 |---|---|---|
-| `gb10-clock-cap.service` | `nvidia-smi -lgc 300,2200` at boot: GPU clock capped at 2200 MHz (stock 2418) | pending (2026-10-24) |
+| `gb10-clock-cap.service` | `nvidia-smi -lgc 300,2200` at boot: GPU clock capped at 2200 MHz (stock 2418) | **installed** 2026-10-24 06:13 (SM clock 2190 MHz, was 2400) |
 
 ## gb10-clock-cap.service
 

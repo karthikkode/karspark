@@ -12,14 +12,14 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
   pause, MCP over HTTP. Planner bake-off: **qwen3.8-27b stays** (tool steps 18/18 vs Glimmer 12/18).
 - **Open issue:** the box hard-powers-off under sustained GPU load (twice: 2026-10-23 16:05, 2026-10-24 01:49 on
   an LTX video run). It's a known GB10 defect (docs/lessons.md, `~/dgx-spark-crash/`). Fixes: the clock cap
-  `host/gb10-clock-cap.service` (**pending: the owner installs it with sudo**) and core r15's thermal guard.
+  `host/gb10-clock-cap.service` (**installed** 2026-10-24) and core r15's thermal guard (deploy pending).
 
 ## Service
 
 | what | image | where | status |
 |---|---|---|---|
 | karspark-core | `karspark/core:0.1.0-r15` | `core/`, unit `core/karspark-core.service`, `--network host`, `:8080` | r14 **deployed** 2026-10-24; r15 pending |
-| GPU clock cap | host unit `host/gb10-clock-cap.service` (`nvidia-smi -lgc 300,2200`) | `/etc/systemd/system/` | **pending** (owner, sudo) |
+| GPU clock cap | host unit `host/gb10-clock-cap.service` (`nvidia-smi -lgc 300,2200`) | `/etc/systemd/system/` | **installed** 2026-10-24 06:13; SM clock 2190 MHz (was 2400) |
 | llama-swap gateway (pre-core) | `karspark/gateway:265` | removed from the repo and the box (2026-10-23) | **removed** |
 
 ## Modes (`config/modes.yaml`)
