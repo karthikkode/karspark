@@ -4,7 +4,7 @@ One endpoint: **`http://100.101.249.74:8080`** (Tailscale). Text (OpenAI `/v1/..
 jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 
 **State on 2026-10-23:**
-- **Live:** karspark-core `0.1.0-r19` on :8080 (cutover 2026-10-23; r15 thermal guard deployed 2026-10-24); the gateway is removed.
+- **Live:** karspark-core `0.1.0-r20` on :8080 (cutover 2026-10-23; r15 thermal guard deployed 2026-10-24); the gateway is removed.
   Box in `coding` (Flash-Next). 53 tests pass. Core sets no `max_tokens` (r10); a looping stream or text job
   is stopped by `loopguard.py`.
 - **Creative mode** ran end to end on the GPU: every media tool, pause/resume, cancel, preemption, text-job
@@ -51,6 +51,7 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 | `Comfy-Org/flux2-dev@ed33133c` (Mistral FP4 TE, Turbo LoRA v2, VAE) | `~/models/image/flux2-dev-comfy` | 15.4 GB | `flux2-dev`, `flux2-refine` |
 | `Lightricks/LTX-2.5@49b093a3` (distilled int8-convrot, Gemma-4 12B int8 TE, VAEs, 2× upscaler) | `~/models/video/ltx-2.5` | 39.7 GB | `ltx-2.5` |
 | `black-forest-labs/flux-3-image-klein-comfy@feef60b0` (NVFP4 diffusion model, `qwen3vl_4b` int8 TE, workflows; gated, licence accepted by the owner) | `~/models/image/flux3-klein-comfy` | 10.2 GB | `flux3-klein` |
+| `black-forest-labs/flux-3-image-klein-comfy@feef60b0` int8-convrot diffusion model (downloaded 2026-10-24 for the texture test; no better, unused) | `~/models/image/flux3-klein-comfy` | 5.8 GB | none |
 | `Lightricks/LTX-2.5@49b093a3` NVFP4 transformer + temporal x2 upscaler (downloaded 2026-10-24 for a test; measured no better, unused) | `~/models/video/ltx-2.5` | 18.7 + 0.3 GB | none |
 | `Comfy-Org/Qwen-Image-Layered_ComfyUI@02130716` (fp8mixed transformer, layered VAE) | `~/models/image/qwen-image-layered-comfy` | 20.8 GB | `qwen-image-layered` |
 | `Comfy-Org/Qwen-Image_ComfyUI@1f12b17b` (Qwen2.5-VL 7B fp8_scaled TE only) | `~/models/image/qwen-image-te` | 9.4 GB | `qwen-image-layered` |

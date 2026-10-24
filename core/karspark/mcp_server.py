@@ -26,7 +26,7 @@ from .service import complete
 INSTRUCTIONS = """karspark runs every model on the owner's DGX Spark behind one API. Full playbook: docs/agents.md.
 Tools
 - Text: generate_text (model "text" = whatever is loaded; it never waits for a model switch).
-- Images: generate_image (FLUX.2 + Turbo LoRA, 12 steps; model="flux3-klein" ~3.5x faster, but it copies reference images into every shot), split_layers (Qwen-Image-Layered), upscale_image.
+- Images: generate_image (FLUX.2 + Turbo LoRA, 12 steps; model="flux3-klein" ~3.5x faster, but it copies reference images into every shot; for flux3-klein avoid 'painterly', 'watercolor' and 'texture' in its prompts (it paints them literally as blotchy brush strokes and paper grain); say 'smooth flat cel colours, crisp line art, no grain, no paper texture' instead), split_layers (Qwen-Image-Layered), upscale_image.
 - Video: generate_video (LTX-2.5; first_frame = image-to-video, first_frame + last_frame = first-to-last
   transition; silent unless audio="sfx", which adds sound effects only, never music or voices), upscale_video.
 - Speech: generate_speech (IndexTTS-2.5): text -> narration WAV, built-in voice "narrator-male" or your own

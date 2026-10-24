@@ -75,6 +75,11 @@ history at commit `f64547d`.
 - **FLUX 3 Image Klein copies its reference into every shot.** Given the character sheet, an establishing shot
   whose prompt names no character came back with the girl standing in it (FLUX.2 left her out). Pass the sheet
   only to shots that show the character. Identity held as well as FLUX.2's at 18 s against 63 s a keyframe.
+- **FLUX 3 Klein takes texture words literally.** Our anime style line ("painterly backgrounds, soft watercolor
+  textures") gave blotchy dry-brush patches and paper grain on every klein image; FLUX.2 read the same words as a
+  soft look. Same seeds: int8 weights instead of NVFP4, 2.3 MP instead of 0.9 MP, and 28 steps instead of 16 all
+  kept the texture. Dropping those words and asking for "smooth flat cel colours, crisp line art, no grain, no
+  paper texture" removed it.
 - Restart ComfyUI after switching models, because it never evicts them.
 - Don't symlink model files into the HF cache. When the cache was cleaned, the default model silently broke.
 

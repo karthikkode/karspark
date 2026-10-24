@@ -99,7 +99,8 @@ once real runs exist.
 **Storyboard to video (one agent, MCP).**
 1. `generate_text` to write the shot list and one FLUX prompt per keyframe.
 2. `upload_file` the character sheet once. For speed use `generate_image(model="flux3-klein")` (18 s against 63 s);
-   it pastes the reference into every image, so attach the sheet only to shots that show the character.
+   it pastes the reference into every image, so attach the sheet only to shots that show the character, and
+   avoid "painterly", "watercolor" and "texture" in its prompts (it paints them literally as blotchy brush strokes and paper grain); say "smooth flat cel colours, crisp line art, no grain, no paper texture" instead.
 3. Submit every keyframe as `generate_image(..., reference_images=[file_id], seed=S, wait_s=0)`.
 4. `wait_job` each one; show the user; regenerate rejects with the same seed and an edited prompt.
 5. Submit every shot as `generate_video(prompt, first_frame=A, last_frame=B, wait_s=0)`.
