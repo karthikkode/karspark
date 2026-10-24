@@ -37,7 +37,7 @@ with `wait_job`.
 | tool | defaults |
 |---|---|
 | `generate_text(prompt, system?, max_tokens?, reasoning_effort?, temperature?, model="text", priority?, as_job=false, wait_s=50, idempotency_key?)` | the loaded text model; returns `{text, reasoning, usage}`. No cap unless you pass `max_tokens`; gives up after 10 min. `as_job=true` runs it as a text job instead (pausable, no time limit, answer in `outputs[0].text`) |
-| `generate_image(prompt, size?, reference_images?, loras?, steps?, seed?, turbo=true, priority?, wait_s=50)` | FLUX.2 + Turbo LoRA, 12 steps |
+| `generate_image(prompt, size?, reference_images?, loras?, steps?, seed?, turbo=true, model?, priority?, wait_s=50)` | FLUX.2 + Turbo LoRA, 12 steps; `model="flux3-klein"` is ~3.5x faster (references leak into every image) |
 | `split_layers(image, layers=4, prompt?, resolution?, seed?, priority?, wait_s=50)` | Qwen-Image-Layered |
 | `upscale_image(image, model="seedvr2-7b", scale=2, prompt?, loras?, priority?, wait_s=50)` | also `seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime` |
 | `generate_video(prompt, first_frame?, last_frame?, duration=5, size="1280x720", fps=24, audio="none", seed?, priority?, wait_s=50)` | LTX-2.5; the frames choose t2v, i2v or first-to-last; `audio="sfx"` for sound effects only |

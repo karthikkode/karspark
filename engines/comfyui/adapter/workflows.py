@@ -4,6 +4,7 @@ Each graph follows the official ComfyUI template for its model (comfyui-workflow
 image), flattened (no subgraphs, switches or math nodes; Python does that) and pointed at our files:
 
   flux2-dev           image_flux2_fp8.json                 text-to-image, or 1..6 reference images
+  flux3-klein         BFL flux3_klein_int8_mi2i.json       the same, 5.6B distilled (16 steps), NVFP4
   qwen-image-layered  image_qwen_image_layered.json        image -> RGBA layers (or text -> layers)
   ltx-2.5             video_ltx2_5_{t2v,i2v,flf2v}.json    text / first frame / first + last frame -> video
   seedvr2-*           utility_seedvr2_*_upscale_*.json     one-step upscaling, images and video
@@ -28,6 +29,11 @@ FLUX2 = {
     "clip": "mistral_3_small_flux2_fp4_mixed.safetensors",
     "vae": "flux2-vae.safetensors",
     "turbo_lora": "Flux2TurboComfyv2.safetensors",
+}
+FLUX3_KLEIN = {
+    "unet": "flux3-image-klein-nvfp4.safetensors",
+    "clip": "qwen3vl_4b_int8_convrot.safetensors",
+    "vae": "flux2-vae.safetensors",                 # klein uses the FLUX.2 VAE
 }
 QWEN_LAYERED = {
     "unet": "qwen_image_layered_fp8mixed.safetensors",
@@ -80,7 +86,7 @@ MAX_SPEECH_CHARS = 20000
 
 # Public model names per job type; the first is the default.
 MODELS = {
-    "image": ["flux2-dev"],
+    "image": ["flux2-dev", "flux3-klein"],
     "layers": ["qwen-image-layered"],
     "video": ["ltx-2.5"],
     "upscale_image": ["seedvr2-7b", "seedvr2-7b-sharp", "seedvr2-3b", "flux2-refine", "esrgan-anime", "esrgan-animevideo"],
@@ -176,6 +182,8 @@ def build_image(params, inputs, ctx):
     refs = list(inputs.get("reference_images") or [])
     if len(refs) > MAX_REFS:
         raise WorkflowError(f"at most {MAX_REFS} reference images")
+    if params["model"] == "flux3-klein":
+        return _flux3_klein(params, refs, ctx)
     turbo = params.get("turbo", True)
     steps = int(params.get("steps") or (12 if turbo else 20))
     g = Graph(ctx)
@@ -200,6 +208,49 @@ def build_image(params, inputs, ctx):
                    g.add("BasicGuider", model=g.out(m), conditioning=g.out(cond)),
                    g.add("KSamplerSelect", sampler_name="euler"),
                    g.out(g.add("Flux2Scheduler", steps=steps, width=w, height=h)), g.out(latent), "flux2")
+    img = g.add("VAEDecode", samples=g.out(out), vae=g.out(vae))
+    g.add("SaveImage", images=g.out(img), filename_prefix=g.prefix("image"))
+    return g.nodes
+
+
+def _flux3_klein(params, refs, ctx):
+    """FLUX 3 Image Klein (distilled): BFL's mi2i template without its prompt upsampler (callers write full
+    prompts). 16 steps, CFG 1, flux shift log(16); references go in through ReferenceMultiLatent. Without
+    "size", a reference job takes the first reference's aspect ratio at 1 MP, like flux2-dev."""
+    g = Graph(ctx)
+    unet = g.add("UNETLoader", unet_name=FLUX3_KLEIN["unet"], weight_dtype="default")
+    m = g.add("ModelSamplingFlux", model=g.out(_loras(g, unet, params)), max_shift=2.77259, base_shift=2.77259,
+              width=1024, height=1024)
+    clip = g.add("CLIPLoader", clip_name=FLUX3_KLEIN["clip"], type="flux3", device="default")
+    vae = g.add("VAELoader", vae_name=FLUX3_KLEIN["vae"])
+    pos = g.add("CLIPTextEncode", text=params["prompt"], clip=g.out(clip))
+    neg = g.add("CLIPTextEncode", text="", clip=g.out(clip))
+    first_size = None
+    if refs:
+        imgs = {}
+        for i, name in enumerate(refs):
+            img = g.add("LoadImage", image=name)
+            if first_size is None:
+                small = g.add("ImageScaleToTotalPixels", image=g.out(img), upscale_method="area", megapixels=1.0,
+                              resolution_steps=16)
+                first_size = g.add("GetImageSize", image=g.out(small))
+            imgs[f"images.image{i}"] = g.out(img)
+        ref = g.add("ReferenceMultiLatent", positive=g.out(pos), negative=g.out(neg), vae=g.out(vae),
+                    resolution="resize", **{"resolution.megapixels": 1.0}, **imgs)
+        pos, neg = g.out(ref, 0), g.out(ref, 1)
+    else:
+        pos, neg = g.out(pos), g.out(neg)
+    if first_size is not None and not params.get("size"):
+        w, h = g.out(first_size, 0), g.out(first_size, 1)
+    else:
+        w, h = _size(params, "1024x1024", 16)
+    latent = g.add("EmptyFlux2LatentImage", width=w, height=h, batch_size=1)
+    # The template's KSampler(euler, simple, CFG 1, 16 steps), in pieces so it can pause.
+    out = g.sample(g.add("RandomNoise", noise_seed=_seed(params)),
+                   g.add("CFGGuider", model=g.out(m), positive=pos, negative=neg, cfg=1.0),
+                   g.add("KSamplerSelect", sampler_name="euler"),
+                   g.out(g.add("BasicScheduler", model=g.out(m), scheduler="simple",
+                               steps=int(params.get("steps") or 16), denoise=1.0)), g.out(latent), "flux3")
     img = g.add("VAEDecode", samples=g.out(out), vae=g.out(vae))
     g.add("SaveImage", images=g.out(img), filename_prefix=g.prefix("image"))
     return g.nodes

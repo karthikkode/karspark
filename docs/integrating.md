@@ -73,7 +73,7 @@ curl -s $KS/v1/files/file_.../content -H "Authorization: Bearer $KEY" -o out.png
 
 | `type` | default model | inputs | key parameters |
 |---|---|---|---|
-| `image` | `flux2-dev` (Turbo LoRA, 12 steps) | `reference_images` (≤ 6) | `prompt`, `size` (WxH, ÷16), `loras`, `steps`, `seed`, `turbo` |
+| `image` | `flux2-dev` (Turbo LoRA, 12 steps); `flux3-klein` (16 steps, ~3.5x faster) | `reference_images` (≤ 6) | `prompt`, `size` (WxH, ÷16), `loras`, `steps`, `seed`, `turbo` |
 | `layers` | `qwen-image-layered` | `image` | `layers` (4), `prompt` (whole scene), `resolution` (640 or 1024) |
 | `video` | `ltx-2.5` | `first_frame`, `last_frame` | `prompt`, `duration` (1–20 s), `size` (÷64, 1280x720), `fps`, `audio` (`none` default, or `sfx`) |
 | `upscale_image` | `seedvr2-7b` | `image` | `model` (`seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime`), `scale` (≤ 4) |

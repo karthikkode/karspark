@@ -1,6 +1,6 @@
 # Engine: comfyui
 
-Image `karspark/comfyui:0.42.4-r11`, built by `scripts/build-images.sh` from the [Dockerfile](Dockerfile):
+Image `karspark/comfyui:0.42.4-r14`, built by `scripts/build-images.sh` from the [Dockerfile](Dockerfile):
 
 - `python:3.12-slim` (pinned digest) + torch **2.13.0+cu130**, torchvision 0.28.0, torchaudio 2.11.0,
   comfy-kitchen 0.2.39 (built 2026-10-22, 6.9 GB; full set in `/opt/pip-freeze.txt` inside the image)
@@ -16,6 +16,9 @@ Image `karspark/comfyui:0.42.4-r11`, built by `scripts/build-images.sh` from the
   `progress.json` each step; when `PAUSE` exists it saves the latent and step to `ckpt/` and stops. Running the
   same job again skips finished stages (`*.done.pt`) and continues the interrupted one from its saved step
   (ancestral noise is fast-forwarded, so the result matches an uninterrupted run)
+- r14: image model `flux3-klein` (FLUX 3 Image Klein NVFP4, `qwen3vl_4b` int8 text encoder, the FLUX.2 VAE), from
+  BFL's `flux3_klein_int8_mi2i` workflow without its prompt upsampler. r12 and r13 were test builds (an LTX NVFP4
+  option, a temporal x2 option, SageAttention); all three measured no better (docs/lessons.md) and are gone.
 - r11: `KarsparkUpscaleWithModel` takes `rescale` and resizes each frame on the GPU (antialiased bicubic). The
   GAN upscale paths use it instead of `ImageScaleBy` lanczos, which ran per frame on the CPU: `esrgan-animevideo` ×3
   of a ~5 s 720p clip 124 s → 54 s, SSIM 0.99 against the lanczos output.

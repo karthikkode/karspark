@@ -26,7 +26,7 @@ from .service import complete
 INSTRUCTIONS = """karspark runs every model on the owner's DGX Spark behind one API. Full playbook: docs/agents.md.
 Tools
 - Text: generate_text (model "text" = whatever is loaded; it never waits for a model switch).
-- Images: generate_image (FLUX.2 + Turbo LoRA, 12 steps), split_layers (Qwen-Image-Layered), upscale_image.
+- Images: generate_image (FLUX.2 + Turbo LoRA, 12 steps; model="flux3-klein" ~3.5x faster, but it copies reference images into every shot), split_layers (Qwen-Image-Layered), upscale_image.
 - Video: generate_video (LTX-2.5; first_frame = image-to-video, first_frame + last_frame = first-to-last
   transition; silent unless audio="sfx", which adds sound effects only, never music or voices), upscale_video.
 - Speech: generate_speech (IndexTTS-2.5): text -> narration WAV, built-in voice "narrator-male" or your own
@@ -87,13 +87,14 @@ def build_mcp(k) -> MCPServer:
         return await complete(k, p, prompt=prompt, system=system, model=model, max_tokens=max_tokens,
                               reasoning_effort=reasoning_effort, temperature=temperature, priority=priority)
 
-    @mcp.tool(description="Generate an image with FLUX.2 [dev] + Turbo LoRA (12 steps). Up to 6 reference_images "
+    @mcp.tool(description="Generate an image. model: flux2-dev (default; FLUX.2 [dev] + Turbo LoRA, 12 steps) or "
+                          "flux3-klein (FLUX 3 Image Klein, 16 steps, faster). Up to 6 reference_images "
                           "(file_id/base64) for characters, outfits or style; loras for character LoRAs. size WxH.")
     async def generate_image(ctx: Context, prompt: str, size: str | None = None, reference_images: list[str] | None = None,
                              loras: list[dict] | None = None, steps: int | None = None, seed: int | None = None,
-                             turbo: bool = True, priority: int | None = None,
+                             turbo: bool = True, model: str | None = None, priority: int | None = None,
                              idempotency_key: str | None = None, wait_s: float = 50):
-        return await media(ctx, {"type": "image", "prompt": prompt, "size": size, "reference_images": reference_images,
+        return await media(ctx, {"type": "image", "model": model, "prompt": prompt, "size": size, "reference_images": reference_images,
                                  "loras": loras, "steps": steps, "seed": seed, "turbo": turbo, "priority": priority,
                                  "idempotency_key": idempotency_key}, wait_s)
 

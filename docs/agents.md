@@ -84,6 +84,7 @@ Measured on the box where a number is given; the rest is measured in phase 0 and
 | LTX-2.5 video, 3 s 768x512 | ComfyUI | ~56 s |
 | LTX-2.5 image-to-video, ~5 s 1280x704 | ComfyUI | 83–132 s, 97 s average over 60 clips (the same with the GPU clock cap) |
 | FLUX.2 keyframe with a reference image, 1280x704, in a batch | ComfyUI | 63–65 s each |
+| `flux3-klein` keyframe with a reference image, 1280x704, in a batch | ComfyUI | 18 s each |
 | speech, IndexTTS-2.5 | ComfyUI | ~0.9 s per second of audio; ~53 s worker load on the first job |
 | `esrgan-anime` video ×3 (1280x704 → 3840x2112), ~5 s clip | ComfyUI | 205–224 s (r9) |
 | `esrgan-animevideo` video ×3, same clip (a little softer, the fast 4K path) | ComfyUI | 53–56 s (r11) |
@@ -97,7 +98,8 @@ once real runs exist.
 
 **Storyboard to video (one agent, MCP).**
 1. `generate_text` to write the shot list and one FLUX prompt per keyframe.
-2. `upload_file` the character sheet once.
+2. `upload_file` the character sheet once. For speed use `generate_image(model="flux3-klein")` (18 s against 63 s);
+   it pastes the reference into every image, so attach the sheet only to shots that show the character.
 3. Submit every keyframe as `generate_image(..., reference_images=[file_id], seed=S, wait_s=0)`.
 4. `wait_job` each one; show the user; regenerate rejects with the same seed and an edited prompt.
 5. Submit every shot as `generate_video(prompt, first_frame=A, last_frame=B, wait_s=0)`.

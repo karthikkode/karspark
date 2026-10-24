@@ -3,11 +3,13 @@ karspark:
   base_path: /models
   diffusion_models: |
     image/flux2-dev-nvfp4
+    image/flux3-klein-comfy/diffusion_models
     video/ltx-2.5/diffusion_models
     image/qwen-image-layered-comfy/split_files/diffusion_models
     image/seedvr2/diffusion_models
   text_encoders: |
     image/flux2-dev-comfy/split_files/text_encoders
+    image/flux3-klein-comfy/text_encoders
     video/ltx-2.5/text_encoders
     image/qwen-image-te/split_files/text_encoders
   vae: |

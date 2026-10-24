@@ -59,7 +59,22 @@ history at commit `f64547d`.
 
 - FLUX.2 dev NVFP4 + Turbo LoRA at 6 steps with 0.25 MP references: a 2.36 MP image in ~48 s.
 - **Never** `--highvram` or `--gpu-only` on GB10. They pin page-locked memory and hung the machine
-  (`NV_ERR_NO_MEMORY`). Use `--reserve-vram 16 --disable-pinned-memory`.
+  (`NV_ERR_NO_MEMORY`). Use `--reserve-vram 16 --disable-pinned-memory`. Retried by mistake on 2026-10-24 (with
+  `--disable-pinned-memory`): it didn't hang, and LTX clips ran ~10 % faster once resident, but every family swap
+  reloaded from disk for minutes (LTX 345 s, FLUX 3 klein 221 s against 23 s). Still never.
+- **Where an LTX-2.5 i2v clip's time goes** (~5 s at 1280x704, ~105 s): Gemma text encoder staging + encode ~20 s,
+  stage 1 sampling 15 s, stage 2 28 s, tiled VAE decode + save ~40 s. Sampling is under half the clip, so
+  sampler speedups barely move it. Measured 2026-10-24 on scene 4 of the anime test, same prompts and seeds:
+  - NVFP4 transformer (`Lightricks/LTX-2.5` `ltx-2.5-22b-distilled-transformer-nvfp4`, native `scaled_mm_nvfp4`):
+    106–110 s, slower than int8-convrot. Not used.
+  - SageAttention 2.2.0 built for sm_120 (runs on sm_121 with a dispatch patch): the kernel is 1.5x faster than
+    SDPA in isolation (cos 0.9993), but clips took 108–111 s against 101–110 s without it. Not used.
+  - LTX temporal x2 latent upscaler (sample at 12 fps, double to 24): 69–85 s, but the framing drifts (heads cut
+    off), the fox smears and grain appears. Not used.
+  - VAE decode tiles: 512/64 t64/16 (the template) 38 s, 1024 t136 31 s, untiled 33 s. Compute-bound.
+- **FLUX 3 Image Klein copies its reference into every shot.** Given the character sheet, an establishing shot
+  whose prompt names no character came back with the girl standing in it (FLUX.2 left her out). Pass the sheet
+  only to shots that show the character. Identity held as well as FLUX.2's at 18 s against 63 s a keyframe.
 - Restart ComfyUI after switching models, because it never evicts them.
 - Don't symlink model files into the HF cache. When the cache was cleaned, the default model silently broke.
 

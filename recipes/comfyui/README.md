@@ -1,6 +1,6 @@
 # comfyui (images, layers, video, speech)
 
-One container, `karspark/comfyui:0.42.4-r11` ([engine](../../engines/comfyui/README.md)), serves every
+One container, `karspark/comfyui:0.42.4-r14` ([engine](../../engines/comfyui/README.md)), serves every
 diffusion model. Weights are read-only from `~/models` via `extra_model_paths.yaml`. The graphs live in
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
@@ -15,6 +15,7 @@ tools with the parameters below.
 | model (`"model"`) | what | weights | revision |
 |---|---|---|---|
 | `flux2-dev` | FLUX.2 [dev] NVFP4 (pure). Default: Turbo LoRA v2 at 12 steps. Up to 6 reference images for character consistency | `black-forest-labs/FLUX.2-dev-NVFP4` → `~/models/image/flux2-dev-nvfp4`; Mistral-3 FP4 TE, Turbo LoRA, VAE from `Comfy-Org/flux2-dev` → `~/models/image/flux2-dev-comfy` | `142b87e7`, `ed33133c` |
+| `flux3-klein` | FLUX 3 Image Klein, 5.6B distilled, NVFP4, 16 steps, CFG 1. Up to 6 reference images (`ReferenceMultiLatent`). ~3.5x faster than `flux2-dev` with the same character identity; line art a little softer. It copies a reference into every shot, so pass the sheet only to shots that show the character | `black-forest-labs/flux-3-image-klein-comfy` → `~/models/image/flux3-klein-comfy` (NVFP4 diffusion model, `qwen3vl_4b` int8 TE); VAE from `flux2-dev` | `feef60b0` |
 | `qwen-image-layered` | splits an image into RGBA layers (input for the parallax pipeline). fp8mixed | `Comfy-Org/Qwen-Image-Layered_ComfyUI` → `~/models/image/qwen-image-layered-comfy`; Qwen2.5-VL 7B fp8 TE from `Comfy-Org/Qwen-Image_ComfyUI` → `~/models/image/qwen-image-te` | `02130716`, `1f12b17b` |
 | `ltx-2.5` | LTX-2.5 22B distilled (int8-convrot), text-to-video, image-to-video, first + last frame. Silent by default | `Lightricks/LTX-2.5` → `~/models/video/ltx-2.5` (Gemma-4 12B int8 TE, video/audio VAE, 2× latent upscaler) | `49b093a3` |
 | `seedvr2-7b`, `seedvr2-7b-sharp`, `seedvr2-3b` | SeedVR2 one-step upscaler for images and video (7B fp16 = best quality, 7B sharp int8 = more detail, 3B fp16 = faster, video default) | `Comfy-Org/SeedVR2` → `~/models/image/seedvr2` | `df488797` |
@@ -119,6 +120,7 @@ Qwen-Image-Layered, and 40 GB for LTX-2.5.
 | LTX-2.5 image-to-video, ~5 s at 1280x704, silent | 83–132 s, 97 s average; the same average with the 2200 MHz clock cap |
 | IndexTTS-2.5 narration | 254 s for 292 s of audio (0.87x real time), worker load ~53 s |
 | `esrgan-anime` video ×3 to 3840x2112, ~5 s clip | 339 s on r8 (stock fp32 tiles), 205–224 s on r9 |
+| `flux3-klein` keyframe, 1280x704, sheet as reference | 18 s each (23 s first; 221 s after an LTX swap under `--highvram`, which we don't use) |
 | `esrgan-animevideo` video ×3, same clips | 120–131 s on r10 (CPU lanczos), 53–56 s on r11 (GPU resize) |
 
 The GPU ran at 82–90 C with the hottest ACPI zone at 90–97 C during back-to-back LTX clips. That run ended in a
