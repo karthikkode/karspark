@@ -40,7 +40,7 @@ recipes/<model>/      README.md (weights repo + revision, recipe table, measurem
 engines/<engine>/     README.md (pinned image digest / version) + Dockerfile for any custom image
 spark-bin/            tools copied to ~/bin on deploy
 host/                 the only host-level files (systemd units the owner installs with sudo; host/README.md)
-scripts/              deploy.sh, build-images.sh, karspark-keys, fetch-model.sh, fetch-pth.sh, status.sh, ...
+scripts/              deploy.sh, build-images.sh, karspark-keys, fetch-model.sh, fetch-pth.sh, convert-weights.sh, status.sh, ...
 docs/registry.md      what is deployed, measured numbers, status
 ```
 
@@ -57,7 +57,8 @@ docs/registry.md      what is deployed, measured numbers, status
 
 ```yaml
 kind: text | media
-capabilities: [text]                 # or image, layers, video, upscale_image, upscale_video
+capabilities: [text]                 # or image, layers, video, upscale_image, upscale_video, speech,
+                                     # remove_background, depth, inpaint
 models: [qwen3.8-27b]                # public names it serves
 served_name: qwen3.8-27b             # what the backend calls it (text)
 port: 10030                          # fixed, 10001..10999, unique; bound on 127.0.0.1 only
@@ -79,6 +80,9 @@ and every mode under 115 GiB.
 2. **Weights:** `scripts/fetch-model.sh <hf-repo> <40-char-sha> <kind>/<name>`. Always pin the revision.
    A small `.pth` that is not on Hugging Face (e.g. an ESRGAN from a GitHub release): `scripts/fetch-pth.sh
    <url> <sha256> <kind>/<name>`. It pins by sha256, stores `.safetensors`, and records the source in `SOURCES`.
+   A pickle or TorchScript file on Hugging Face: fetch it with `fetch-model.sh`, then `scripts/convert-weights.sh
+   <kind>/<name>/<file> <out>.safetensors <check>` turns it into `.safetensors` (no code runs), checks it loads,
+   and deletes the original.
 3. **Engine:** if the recipe needs an image we don't have, add `engines/<engine>/README.md` with the
    **digest**, or a Dockerfile for a custom build. Pull or build it on the Spark. Never `docker commit`.
 4. **Recipe:** `recipes/<model>/<recipe>.yaml` plus the README table row. Media models also need graphs in

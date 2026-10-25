@@ -9,6 +9,9 @@ image), flattened (no subgraphs, switches or math nodes; Python does that) and p
   ltx-2.5             video_ltx2_5_{t2v,i2v,flf2v}.json    text / first frame / first + last frame -> video
   seedvr2-*           utility_seedvr2_*_upscale_*.json     one-step upscaling, images and video
   flux2-refine, esrgan-anime                               anime-safe and instant image upscaling
+  birefnet            utility_birefnet_remove_background   image -> foreground mask + RGBA cut-out
+  da3-mono-large      utility_depth_anything3_image_...    image -> depth map (near = white) + sky mask
+  lama                not a template (KarsparkInpaint)     image + mask -> the masked area filled
   indextts-2.5        not a ComfyUI graph: build_speech() returns a spec that the adapter hands to its
                       IndexTTS worker (../tts/worker.py, its own venv in this image)
 
@@ -19,7 +22,7 @@ BasicScheduler, KSamplerSelect, RandomNoise) for that reason; the maths is ident
 build(kind, params, inputs, ctx):
   params  the job's parameters, including "seed"
   inputs  logical name -> file name in ComfyUI's input folder: "image", "reference_images" (list),
-          "first_frame", "last_frame", "video"
+          "first_frame", "last_frame", "video", "mask"
   ctx     {"job_dir": "/jobs/<id>", "run_id": "<per attempt>", "out": "<id>/out"} (output folder = /jobs)
 
 Check graphs offline with scripts/validate-comfy-graphs.sh (ComfyUI's own validator, no GPU).
@@ -56,6 +59,12 @@ SEEDVR2_VAE = "seedvr2_ema_vae_fp16.safetensors"
 ESRGAN_ANIME = "RealESRGAN_x4plus_anime_6B.safetensors"
 ESRGAN_ANIME_VIDEO = "realesr-animevideov3.safetensors"   # Real-ESRGAN compact, built for anime video
 GAN_FILES = {"esrgan-anime": ESRGAN_ANIME, "esrgan-animevideo": ESRGAN_ANIME_VIDEO}
+# Small vision models for 2.5D work (cut-outs, parallax, clean backgrounds). ~0.2-1.3 GB each; they stay loaded
+# next to the diffusion models (core's family() treats them as negligible).
+# BiRefNet general (MIT). ToonOut (BiRefNet tuned on anime) was tried: it kept chunks of wall with the character.
+BG_REMOVAL = {"birefnet": "birefnet.safetensors"}
+DEPTH = {"da3-mono-large": "depth_anything_3_mono_large.safetensors"}   # Depth Anything 3 mono (Apache-2.0)
+INPAINT = {"lama": "big-lama.safetensors"}                   # LaMa big-lama (Apache-2.0)
 
 # Distilled schedules, verbatim from the LTX-2.5 templates.
 LTX_SIGMAS_STAGE1 = "1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0"
@@ -92,6 +101,9 @@ MODELS = {
     "upscale_image": ["seedvr2-7b", "seedvr2-7b-sharp", "seedvr2-3b", "flux2-refine", "esrgan-anime", "esrgan-animevideo"],
     "upscale_video": ["seedvr2-3b", "seedvr2-7b", "seedvr2-7b-sharp", "esrgan-anime", "esrgan-animevideo"],
     "speech": ["indextts-2.5"],
+    "remove_background": ["birefnet"],
+    "depth": ["da3-mono-large"],
+    "inpaint": ["lama"],
 }
 
 
@@ -128,7 +140,8 @@ class Graph:
 def build(kind, params, inputs, ctx):
     builders = {"image": build_image, "layers": build_layers, "video": build_video,
                 "upscale_image": build_upscale_image, "upscale_video": build_upscale_video,
-                "speech": build_speech}
+                "speech": build_speech, "remove_background": build_remove_background, "depth": build_depth,
+                "inpaint": build_inpaint}
     if kind not in builders:
         raise WorkflowError(f"unknown job type {kind!r}")
     model = params.get("model") or MODELS[kind][0]
@@ -533,3 +546,82 @@ def build_speech(params, inputs, ctx):
         raise WorkflowError("pause_ms must be 0..5000")
     return {"speech": True, "text": text, "voice": voice, "lang": lang, "seed": _seed(params),
             "pause_ms": pause_ms, "job_dir": ctx["job_dir"], "out": ctx["out"], "paths": SPEECH}
+
+
+# ---------------------------------------------------------------- 2.5D helpers: cut-out, depth, fill
+def _int(params, name, default, lo, hi):
+    try:
+        v = int(params.get(name, default))
+    except (TypeError, ValueError):
+        raise WorkflowError(f"{name} must be an integer")
+    if not lo <= v <= hi:
+        raise WorkflowError(f"{name} must be {lo}..{hi}")
+    return v
+
+
+def _bg_mask(g, src, model):
+    bg = g.add("LoadBackgroundRemovalModel", bg_removal_name=BG_REMOVAL[model])
+    return g.add("RemoveBackground", bg_removal_model=g.out(bg), image=g.out(src))
+
+
+def build_remove_background(params, inputs, ctx):
+    """BiRefNet foreground matte at 1024 px, resized to the input. Two outputs: "mask" (greyscale, white =
+    foreground) and "cutout" (the input as RGBA, background transparent)."""
+    if not inputs.get("image"):
+        raise WorkflowError("image is required")
+    g = Graph(ctx)
+    src = g.add("LoadImage", image=inputs["image"])
+    mask = _bg_mask(g, src, params["model"])
+    g.add("SaveImage", images=g.out(g.add("MaskToImage", mask=g.out(mask))), filename_prefix=g.prefix("mask"))
+    # JoinImageWithAlpha takes ComfyUI's inverted mask convention (1 = transparent)
+    rgba = g.add("JoinImageWithAlpha", image=g.out(src), alpha=g.out(g.add("InvertMask", mask=g.out(mask))))
+    g.add("SaveImage", images=g.out(rgba), filename_prefix=g.prefix("cutout"))
+    return g.nodes
+
+
+def build_depth(params, inputs, ctx):
+    """Depth Anything 3 (mono). "resolution" is the longest side the model sees (multiple of 14, default 1008);
+    the maps come back at the input size. Outputs: "depth" (near = white, percentile-normalised, sky pushed to
+    the far end) and "sky" (sky probability, white = sky)."""
+    if not inputs.get("image"):
+        raise WorkflowError("image is required")
+    res = _int(params, "resolution", 1008, 140, 2520)
+    if res % 14:
+        raise WorkflowError("resolution must be a multiple of 14")
+    g = Graph(ctx)
+    src = g.add("LoadImage", image=inputs["image"])
+    m = g.add("LoadDA3Model", model_name=DEPTH[params["model"]], weight_dtype="default")
+    geo = g.add("DA3Inference", da3_model=g.out(m), image=g.out(src), resolution=res,
+                resize_method="upper_bound_resize", mode="mono")
+    depth = g.add("DA3Render", da3_geometry=g.out(geo), **{"output": "depth", "output.normalization": "v2_style",
+                                                           "output.apply_sky_clip": True})
+    g.add("SaveImage", images=g.out(depth), filename_prefix=g.prefix("depth"))
+    sky = g.add("DA3Render", da3_geometry=g.out(geo), **{"output": "sky_mask", "output.colored": False})
+    g.add("SaveImage", images=g.out(sky), filename_prefix=g.prefix("sky"))
+    return g.nodes
+
+
+def build_inpaint(params, inputs, ctx):
+    """LaMa fill. The area comes from the "mask" input (white = fill) or, with "auto_mask": "foreground", from a
+    BiRefNet matte of the image itself: one job
+    for a clean background behind the characters. "grow" widens the area by that many pixels (default 16) so
+    edges and soft shadows go too."""
+    if not inputs.get("image"):
+        raise WorkflowError("image is required")
+    auto = params.get("auto_mask")
+    if auto not in (None, "foreground"):
+        raise WorkflowError('auto_mask must be "foreground"')
+    if bool(inputs.get("mask")) == bool(auto):
+        raise WorkflowError('give either a mask image or auto_mask="foreground"')
+    grow = _int(params, "grow", 16, 0, 256)
+    g = Graph(ctx)
+    src = g.add("LoadImage", image=inputs["image"])
+    if auto:
+        mask = _bg_mask(g, src, MODELS["remove_background"][0])
+    else:
+        mask = g.add("LoadImageMask", image=inputs["mask"], channel="red")
+    if grow:
+        mask = g.add("GrowMask", mask=g.out(mask), expand=grow, tapered_corners=True)
+    out = g.add("KarsparkInpaint", model_name=INPAINT[params["model"]], image=g.out(src), mask=g.out(mask))
+    g.add("SaveImage", images=g.out(out), filename_prefix=g.prefix("inpaint"))
+    return g.nodes

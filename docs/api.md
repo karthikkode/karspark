@@ -45,7 +45,8 @@ interactive version is at `/docs`.
 
 ```jsonc
 {
-  "type": "image",                    // image | layers | video | upscale_image | upscale_video | speech | text
+  "type": "image",                    // image | layers | video | upscale_image | upscale_video | speech |
+                                      // remove_background | depth | inpaint | text
   "model": "flux2-dev",               // optional: the type's default
   "priority": 2,                      // optional: your tier's default; capped at its ceiling
   "webhook": "https://...",           // optional: POSTed on succeeded/failed/cancelled/paused

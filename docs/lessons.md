@@ -97,6 +97,15 @@ history at commit `f64547d`.
   - Planning was the slowest single step (one huge JSON in a single pass). Plan in levels and in parallel.
   - Projection for a 1-hour film: ~17 h as run; ~7.5–9 h with chunked planning, matte and depth on the GPU,
     inpainting instead of full background redraws, and ~10 % LTX hero shots. 4K isn't worth it here.
+- **2.5D helpers (2026-10-25).** ComfyUI 0.42.4 already ships BiRefNet background removal and Depth Anything 3
+  nodes, and spandrel (bundled) loads LaMa, so all three needed no new packages. Checked on the box's CPU on two
+  POC keyframes before any GPU run:
+  - ToonOut (BiRefNet fine-tuned on anime) kept a chunk of stone wall with the girl on one keyframe and a speck
+    on the other; plain BiRefNet was clean on both. BiRefNet only.
+  - LaMa fills a character-sized hole with a soft smear. Fine behind a character that sways a few pixels;
+    a big reveal needs the klein edit.
+  - Weight files carry wrapper prefixes: the TorchScript big-lama keys start with `model.` and the ToonOut
+    `.pth` (saved after `torch.compile`) with `_orig_mod.`. `convert-weights.sh` takes `STRIP=<prefix>`.
 - Restart ComfyUI after switching models, because it never evicts them.
 - Don't symlink model files into the HF cache. When the cache was cleaned, the default model silently broke.
 

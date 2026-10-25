@@ -445,3 +445,47 @@ async def test_thermal_pause_keeps_progress_and_resumes(env):
     assert [r[0] for r in env.comfy.runs] == [job["id"], job["id"]]
     ev = (await env.c.get(f"/v1/jobs/{job['id']}/events", headers=std)).json()["data"]
     assert any("paused to cool" in (e["reason"] or "") for e in ev)
+
+
+async def test_2_5d_jobs_validate_and_never_evict_the_image_model(env):
+    await go_creative(env)
+    std = await env.key("proj-a", "standard")
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+    fid = (await env.c.post("/v1/files", files={"file": ("kf.png", png, "image/png")}, headers=std)).json()["file_id"]
+    job = (await env.c.post("/v1/jobs", json={"type": "image", "prompt": "a girl", "model": "flux3-klein"},
+                            headers=std)).json()
+    await env.until(lambda: _is_state(env, job["id"], "succeeded"))
+    frees = env.comfy.frees
+    for body in ({"type": "remove_background", "image": fid}, {"type": "depth", "image": fid, "resolution": 504},
+                 {"type": "inpaint", "image": fid, "auto_mask": "foreground"},
+                 {"type": "inpaint", "image": fid, "mask": fid, "grow": 8}):
+        r = await env.c.post("/v1/jobs", json=body, headers=std)
+        assert r.status_code == 201, r.text
+        await env.until(lambda: _is_state(env, r.json()["id"], "succeeded"))
+    assert env.comfy.frees == frees                     # small models stay loaded beside flux3-klein
+    j = await env.k.jobs.get(r.json()["id"])
+    assert j["model"] == "lama" and j["inputs"] == {"image": "image.png", "mask": "mask.png"}
+    assert (await env.k.jobs.get(job["id"]))["model"] == "flux3-klein"
+    for body, msg in (({"type": "inpaint", "image": fid}, "auto_mask"),
+                      ({"type": "depth", "image": fid, "resolution": 500}, "multiple of 14"),
+                      ({"type": "remove_background", "image": fid, "model": "lama"}, "can't do remove_background")):
+        r = await env.c.post("/v1/jobs", json=body, headers=std)
+        assert r.status_code == 400 and msg in r.text, r.text
+
+
+async def test_text_job_sees_images_and_follows_a_json_schema(env):
+    await go_creative(env)
+    std = await env.key("proj-a", "standard")
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+    fid = (await env.c.post("/v1/files", files={"file": ("kf.png", png, "image/png")}, headers=std)).json()["file_id"]
+    schema = {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]}
+    r = await env.c.post("/v1/jobs", json={"type": "text", "prompt": "does it match?", "images": [fid],
+                                           "json_schema": schema}, headers=std)
+    assert r.status_code == 201, r.text
+    await env.until(lambda: _is_state(env, r.json()["id"], "succeeded"))
+    req = env.planner.requests[-1]
+    assert req["response_format"]["json_schema"]["schema"] == schema and "json_schema" not in req
+    parts = req["messages"][-1]["content"]
+    assert parts[0]["image_url"]["url"].startswith("data:image/png;base64,") and parts[-1]["text"] == "does it match?"
+    r = await env.c.post("/v1/jobs", json={"type": "text", "prompt": "x", "json_schema": "nope"}, headers=std)
+    assert r.status_code == 400 and "json_schema" in r.text

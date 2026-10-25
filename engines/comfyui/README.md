@@ -16,6 +16,9 @@ Image `karspark/comfyui:0.42.4-r14`, built by `scripts/build-images.sh` from the
   `progress.json` each step; when `PAUSE` exists it saves the latent and step to `ckpt/` and stops. Running the
   same job again skips finished stages (`*.done.pt`) and continues the interrupted one from its saved step
   (ancestral noise is fast-forwarded, so the result matches an uninterrupted run)
+- r15: the 2.5D helpers. `KarsparkInpaint` (LaMa through spandrel, which ComfyUI already bundles) and model
+  folders for ComfyUI's native BiRefNet `RemoveBackground` and Depth Anything 3 nodes (`background_removal`,
+  `geometry_estimation`, `inpaint` in `extra_model_paths.yaml`). No new Python packages.
 - r14: image model `flux3-klein` (FLUX 3 Image Klein NVFP4, `qwen3vl_4b` int8 text encoder, the FLUX.2 VAE), from
   BFL's `flux3_klein_int8_mi2i` workflow without its prompt upsampler. r12 and r13 were test builds (an LTX NVFP4
   option, a temporal x2 option, SageAttention); all three measured no better (docs/lessons.md) and are gone.

@@ -32,8 +32,8 @@ def family(model: str) -> str | None:
     """ComfyUI model families: switching family costs a 30-60 s weight load; None = negligible."""
     if model.startswith("flux2"):
         return "flux2"
-    if model in ("esrgan-anime", "esrgan-animevideo"):
-        return None
+    if model in ("esrgan-anime", "esrgan-animevideo", "birefnet", "da3-mono-large", "lama"):
+        return None         # small models that stay loaded next to the big ones
     return model or None
 
 

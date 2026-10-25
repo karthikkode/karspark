@@ -12,7 +12,9 @@ import asyncio
 import contextlib
 import io
 import json
+import tempfile
 import time
+from pathlib import Path
 
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.utilities.types import Image
@@ -25,10 +27,15 @@ from .service import complete
 
 INSTRUCTIONS = """karspark runs every model on the owner's DGX Spark behind one API. Full playbook: docs/agents.md.
 Tools
-- Text: generate_text (model "text" = whatever is loaded; it never waits for a model switch).
+- Text: generate_text (model "text" = whatever is loaded; it never waits for a model switch). json_schema makes
+  the answer schema-valid JSON (plans, shot lists); images lets the creative planner look (check a keyframe
+  against the brief). The planner serves 4 requests at once: plan long pieces in parallel chunks.
 - Images: generate_image (FLUX.2 + Turbo LoRA, 12 steps; model="flux3-klein" ~3.5x faster, but it copies reference images into every shot; for flux3-klein avoid 'painterly', 'watercolor' and 'texture' in its prompts (it paints them literally as blotchy brush strokes and paper grain); say 'smooth flat cel colours, crisp line art, no grain, no paper texture' instead), split_layers (Qwen-Image-Layered), upscale_image.
 - Video: generate_video (LTX-2.5; first_frame = image-to-video, first_frame + last_frame = first-to-last
   transition; silent unless audio="sfx", which adds sound effects only, never music or voices), upscale_video.
+- 2.5D (motion from stills, no video model): remove_background (character cut-out), estimate_depth
+  (parallax map), inpaint_image (auto_mask="foreground" = the clean background behind them). ~1 s each, and
+  they stay loaded beside the image models, so mixing them with generate_image costs no weight swaps.
 - Speech: generate_speech (IndexTTS-2.5): text -> narration WAV, built-in voice "narrator-male" or your own
   3-15 s clip as voice. This is the only source of voices: videos never get speech from the video model.
 - Media tools are jobs: they wait up to wait_s (max 55), then return the job with eta_s. Continue with wait_job.
@@ -73,19 +80,26 @@ def build_mcp(k) -> MCPServer:
     # ---------------------------------------------------------------- generation
     @mcp.tool(description="Generate text with the loaded LLM (default model 'text'). Returns the answer. No "
                           "max_tokens needed (no cap). For long writing set as_job=true: it runs as a text job you can "
-                          "wait_job, pause and resume, and the answer is in outputs[0].text.")
+                          "wait_job, pause and resume, and the answer is in outputs[0].text. images (file_id/base64): "
+                          "the creative planner can see them (check a keyframe against the brief). json_schema: the "
+                          "answer is JSON that matches this schema, enforced while decoding (shot lists, plans).")
     async def generate_text(ctx: Context, prompt: str, system: str | None = None, max_tokens: int | None = None,
                             reasoning_effort: str | None = None, temperature: float | None = None,
-                            model: str = "text", priority: int | None = None, as_job: bool = False,
+                            model: str = "text", images: list[str] | None = None, json_schema: dict | None = None,
+                            priority: int | None = None, as_job: bool = False,
                             wait_s: float = 50, idempotency_key: str | None = None):
         if as_job:
             return await media(ctx, {"type": "text", "prompt": prompt, "system": system, "max_tokens": max_tokens,
                                      "reasoning_effort": reasoning_effort, "temperature": temperature,
-                                     "model": model, "priority": priority, "idempotency_key": idempotency_key},
-                               wait_s)
+                                     "model": model, "images": images, "json_schema": json_schema,
+                                     "priority": priority, "idempotency_key": idempotency_key}, wait_s)
         p = await who(ctx)
-        return await complete(k, p, prompt=prompt, system=system, model=model, max_tokens=max_tokens,
-                              reasoning_effort=reasoning_effort, temperature=temperature, priority=priority)
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = [Path(tmp) / await k.files.resolve_input(p, x, Path(tmp), f"image_{i}", "image")
+                     for i, x in enumerate(images or [])]
+            return await complete(k, p, prompt=prompt, system=system, model=model, max_tokens=max_tokens,
+                                  reasoning_effort=reasoning_effort, temperature=temperature, priority=priority,
+                                  images=paths, json_schema=json_schema)
 
     @mcp.tool(description="Generate an image. model: flux2-dev (default; FLUX.2 [dev] + Turbo LoRA, 12 steps) or "
                           "flux3-klein (FLUX 3 Image Klein, 16 steps, faster). Up to 6 reference_images "
@@ -105,6 +119,32 @@ def build_mcp(k) -> MCPServer:
                            idempotency_key: str | None = None, wait_s: float = 50):
         return await media(ctx, {"type": "layers", "image": image, "layers": layers, "prompt": prompt,
                                  "resolution": resolution, "seed": seed, "priority": priority,
+                                 "idempotency_key": idempotency_key}, wait_s)
+
+    @mcp.tool(description="Cut the subject out of an image (BiRefNet matte). Returns two files: mask (white = "
+                          "subject) and cutout (RGBA, background transparent). For 2.5D: the character layer.")
+    async def remove_background(ctx: Context, image: str, priority: int | None = None,
+                                idempotency_key: str | None = None, wait_s: float = 50):
+        return await media(ctx, {"type": "remove_background", "image": image, "priority": priority,
+                                 "idempotency_key": idempotency_key}, wait_s)
+
+    @mcp.tool(description="Estimate depth (Depth Anything 3 mono-large). Returns depth (greyscale, near = white, "
+                          "sky at the far end) and sky (white = sky), both at the input size. resolution: the longest "
+                          "side the model sees, multiple of 14 (default 1008). For 2.5D: the parallax map.")
+    async def estimate_depth(ctx: Context, image: str, resolution: int | None = None, priority: int | None = None,
+                             idempotency_key: str | None = None, wait_s: float = 50):
+        return await media(ctx, {"type": "depth", "image": image, "resolution": resolution, "priority": priority,
+                                 "idempotency_key": idempotency_key}, wait_s)
+
+    @mcp.tool(description="Fill part of an image (LaMa). Give mask (white = fill) or auto_mask='foreground' to "
+                          "remove the subject in one job (the clean background behind characters for 2.5D). grow "
+                          "widens the area in pixels (default 16). ~1 s; a flux3-klein edit is the slower, "
+                          "better fill for big reveals.")
+    async def inpaint_image(ctx: Context, image: str, mask: str | None = None, auto_mask: str | None = None,
+                            grow: int | None = None, priority: int | None = None,
+                            idempotency_key: str | None = None, wait_s: float = 50):
+        return await media(ctx, {"type": "inpaint", "image": image, "mask": mask, "auto_mask": auto_mask,
+                                 "grow": grow, "priority": priority,
                                  "idempotency_key": idempotency_key}, wait_s)
 
     @mcp.tool(description="Upscale an image. model: seedvr2-7b (default, best), seedvr2-7b-sharp, seedvr2-3b, "

@@ -1,4 +1,5 @@
-"""karspark ComfyUI nodes: sampling that can pause without losing progress, and a fast GAN upscaler.
+"""karspark ComfyUI nodes: sampling that can pause without losing progress, a fast GAN upscaler, and LaMa
+inpainting.
 
 `KarsparkSampler` is `SamplerCustomAdvanced` plus three things, all keyed to a per-job directory that the
 adapter owns (`/jobs/<job_id>`, shared with karspark-core):
@@ -22,6 +23,7 @@ from pathlib import Path
 import torch
 
 import comfy.model_management
+import folder_paths
 import comfy.sample
 import comfy.samplers
 import comfy.utils
@@ -269,6 +271,43 @@ class KarsparkUpscaleWithModel:
         return (out.movedim(-3, -1),)
 
 
-NODE_CLASS_MAPPINGS = {"KarsparkSampler": KarsparkSampler, "KarsparkUpscaleWithModel": KarsparkUpscaleWithModel}
+class KarsparkInpaint:
+    """LaMa (big-lama) fill of a masked area, one whole image per pass, through spandrel (bundled with ComfyUI).
+    mask: 1 = fill. Pixels outside the mask are returned unchanged. The model is small (~200 MB) and stays
+    resident, so it never evicts the big diffusion models (core treats it as a negligible family)."""
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "inpaint"
+    CATEGORY = "karspark"
+    _models: dict = {}
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"model_name": (folder_paths.get_filename_list("inpaint"),), "image": ("IMAGE",),
+                             "mask": ("MASK",)}}
+
+    def inpaint(self, model_name, image, mask):
+        import spandrel
+        device = comfy.model_management.get_torch_device()
+        path = folder_paths.get_full_path_or_raise("inpaint", model_name)
+        model = self._models.get(path)
+        if model is None:
+            model = self._models[path] = spandrel.ModelLoader().load_from_file(path).eval().to(device)
+        n, h, w, _ = image.shape
+        mask = mask.reshape((-1, 1) + mask.shape[-2:]).float()
+        if mask.shape[-2:] != (h, w):
+            mask = torch.nn.functional.interpolate(mask, size=(h, w), mode="bilinear")
+        out = []
+        with torch.inference_mode():
+            for i in range(n):
+                x = image[i:i + 1, ..., :3].movedim(-1, 1).to(device, torch.float32)
+                m = (mask[min(i, len(mask) - 1)][None] > 0.5).to(device, torch.float32)
+                y = model(x, m).clamp(0, 1)
+                out.append((x * (1 - m) + y * m).movedim(1, -1).to(comfy.model_management.intermediate_device()))
+        return (torch.cat(out),)
+
+
+NODE_CLASS_MAPPINGS = {"KarsparkSampler": KarsparkSampler, "KarsparkUpscaleWithModel": KarsparkUpscaleWithModel,
+                       "KarsparkInpaint": KarsparkInpaint}
 NODE_DISPLAY_NAME_MAPPINGS = {"KarsparkSampler": "Karspark Sampler (pausable)",
-                              "KarsparkUpscaleWithModel": "Karspark Upscale with model (fp16, whole frames)"}
+                              "KarsparkUpscaleWithModel": "Karspark Upscale with model (fp16, whole frames)",
+                              "KarsparkInpaint": "Karspark Inpaint (LaMa)"}

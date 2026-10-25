@@ -79,7 +79,10 @@ curl -s $KS/v1/files/file_.../content -H "Authorization: Bearer $KEY" -o out.png
 | `upscale_image` | `seedvr2-7b` | `image` | `model` (`seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime`), `scale` (≤ 4) |
 | `upscale_video` | `seedvr2-3b` | `video` | `model` (`seedvr2-7b`, `seedvr2-7b-sharp`, `esrgan-anime`: anime, `scale: 3` = 720p to 4K, clips < ~8 s; `esrgan-animevideo`: ~10x faster, softer), `scale` (≤ 4) |
 | `speech` | `indextts-2.5` | `voice` (a 3–15 s clip to clone; optional) | `text` (≤ 20000 chars; blank line = paragraph), `voice` (`narrator-male` built in), `lang` (`EN` default, `ZH`, `JA`, `ES`, `FR`, `DE`, `KO`, `YUE`), `pause_ms` (600), `seed` |
-| `text` | `text` | none | `prompt` or `messages`, `system`, `max_tokens`, `reasoning_effort` |
+| `remove_background` | `birefnet` | `image` | none. Outputs `mask` (white = subject) and `cutout` (RGBA) |
+| `depth` | `da3-mono-large` | `image` | `resolution` (longest side the model sees, ÷14, default 1008). Outputs `depth` (near = white) and `sky` |
+| `inpaint` | `lama` | `image`, `mask` (white = fill) | `auto_mask` (`foreground`: mask the subject itself instead of a `mask` input), `grow` (px, default 16) |
+| `text` | `text` | `images` (the creative planner can see them) | `prompt` or `messages`, `system`, `max_tokens`, `reasoning_effort`, `json_schema` (answer is JSON matching it) |
 
 The inputs choose the video type. With no frames it's text-to-video; with `first_frame` it's
 image-to-video; with `first_frame` + `last_frame` it's a first-to-last transition. Videos are **silent** by

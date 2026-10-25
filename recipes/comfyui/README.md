@@ -1,6 +1,6 @@
 # comfyui (images, layers, video, speech)
 
-One container, `karspark/comfyui:0.42.4-r14` ([engine](../../engines/comfyui/README.md)), serves every
+One container, `karspark/comfyui:0.42.4-r15` ([engine](../../engines/comfyui/README.md)), serves every
 diffusion model. Weights are read-only from `~/models` via `extra_model_paths.yaml`. The graphs live in
 [workflows.py](../../engines/comfyui/adapter/workflows.py). Each one is the official ComfyUI template
 for that model, flattened, and checked with `scripts/validate-comfy-graphs.sh`.
@@ -21,6 +21,9 @@ tools with the parameters below.
 | `seedvr2-7b`, `seedvr2-7b-sharp`, `seedvr2-3b` | SeedVR2 one-step upscaler for images and video (7B fp16 = best quality, 7B sharp int8 = more detail, 3B fp16 = faster, video default) | `Comfy-Org/SeedVR2` → `~/models/image/seedvr2` | `df488797` |
 | `esrgan-animevideo` | realesr-animevideov3, Real-ESRGAN's compact model for anime video: ~10x faster than `esrgan-anime`, a little softer | official GitHub release v0.2.5.0 (sha256 `b8a8376811077954d82ca3fcf476f1ac3da3e8a68a4f4d71363008000a18b75d`), `scripts/fetch-pth.sh` → `~/models/image/upscale-gan` |
 | `esrgan-anime` (also the first step of `flux2-refine`) | RealESRGAN x4plus anime 6B. Instant, adds no detail | official GitHub release v0.2.2.4, converted to safetensors by `scripts/fetch-pth.sh` → `~/models/image/upscale-gan` | sha256 `f872d837…` (.pth) |
+| `birefnet` (`remove_background`, and `inpaint` with `auto_mask`) | BiRefNet (general), ComfyUI's native `RemoveBackground`: a soft foreground matte at 1024 px. ToonOut (BiRefNet tuned on anime) was tried and dropped: it kept chunks of wall with the character | `Comfy-Org/BiRefNet` → `~/models/vision/birefnet` (MIT) | `25511f87` |
+| `da3-mono-large` (`depth`) | Depth Anything 3 mono-large, ComfyUI's native DA3 nodes: relative depth (near = white) and a sky mask | `Comfy-Org/Depth-Anything-3` → `~/models/vision/depth-anything-3` (Apache-2.0) | `1aaeea51` |
+| `lama` (`inpaint`) | LaMa big-lama through spandrel (`KarsparkInpaint`). Fills small and medium holes well; a large hole comes out as a soft smear | `fashn-ai/LaMa` `big-lama.pt` (TorchScript of the official Apache-2.0 weights) → `scripts/convert-weights.sh` → `~/models/image/lama/big-lama.safetensors` | `da55aaf9` |
 | character LoRAs | for `flux2-dev` | `~/models/image/loras/<name>.safetensors` | ours |
 | `indextts-2.5` | IndexTTS-2.5 zero-shot TTS (bf16): text → narration WAV in a cloned voice. Not a ComfyUI graph: the adapter runs it in a worker process with its own venv, and `/v1/free` stops it like any family swap | `IndexTeam/IndexTTS-2.5` → `~/models/audio/indextts-2.5` (no `qwen0.6bemo4-merge`: emotion-from-text is off); `facebook/w2v-bert-2.0` → `~/models/audio/w2v-bert-2.0`; `funasr/campplus` → `~/models/audio/campplus`; `nvidia/bigvgan_v2_22khz_80band_256x` (generator only) → `~/models/audio/bigvgan-v2-22khz` | `c39ce5ba`, `da985ba0`, `e4b6ede7`, `633ff708` |
 | voice `narrator-male` | the built-in narrator: `examples/voice_05.wav` of the `IndexTeam/IndexTTS-2-Demo` space (a calm male storyteller, Chinese speaker, 8.4 s; original sha256 `eefb7f4a…`), made mono and turned down 7 dB (`ffmpeg -ac 1 -af volume=-7dB`): the original peaks at 0 dBFS and IndexTTS copies its loudness, which clipped (274 full-scale samples in 10 s, now 17) | `~/models/audio/indextts-voices/narrator-male.wav` (sha256 `e6ec91e4…`) | space `b01840e8` |
@@ -62,6 +65,16 @@ tools with the parameters below.
  "prompt": "describe the image", "loras": [{"name": "mychar.safetensors"}], "denoise": 0.35}
 {"model": "esrgan-anime", "image": "<base64 png>", "scale": 4}          // instant preview
 // scale > 1 and <= 4. seedvr2 also takes "color_correction": lab (default) | wavelet | adain | none
+```
+
+**2.5D helpers** (`remove_background`, `depth`, `inpaint`): PNGs at the input size. Small models that stay
+loaded next to the diffusion models, so they never cost a family swap.
+
+```jsonc
+{"type": "remove_background", "image": "<file_id>"}                  // -> mask_*.png (white = subject), cutout_*.png (RGBA)
+{"type": "depth", "image": "<file_id>", "resolution": 1008}          // -> depth_*.png (near = white), sky_*.png
+{"type": "inpaint", "image": "<file_id>", "auto_mask": "foreground"} // -> inpaint_*.png: the subject removed
+{"type": "inpaint", "image": "<file_id>", "mask": "<file_id>", "grow": 16}   // mask: white = fill
 ```
 
 **Speech** (`speech`): a WAV, 22.05 kHz mono. The only source of voices (videos stay silent; mux it on).

@@ -22,3 +22,6 @@ karspark:
     image/loras
   latent_upscale_models: video/ltx-2.5/latent_upscale_models
   upscale_models: image/upscale-gan
+  background_removal: vision/birefnet/background_removal
+  geometry_estimation: vision/depth-anything-3/geometry_estimation
+  inpaint: image/lama

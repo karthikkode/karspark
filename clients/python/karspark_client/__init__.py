@@ -123,11 +123,12 @@ class Karspark:
             body["priority"] = priority
         if webhook:
             body["webhook"] = webhook
-        for k in ("image", "video", "first_frame", "last_frame"):
+        for k in ("image", "video", "first_frame", "last_frame", "mask"):
             if k in body:
                 body[k] = self._input(body[k])
-        if "reference_images" in body:
-            body["reference_images"] = [self._input(v) for v in body["reference_images"]]
+        for k in ("reference_images", "images"):
+            if k in body:
+                body[k] = [self._input(v) for v in body[k]]
         key = idempotency_key or uuid.uuid4().hex
         return Job(self, self.request("POST", "/v1/jobs", json=body, headers={"Idempotency-Key": key}))
 
@@ -153,9 +154,25 @@ class Karspark:
     def upscale_video(self, video: Input, *, model: str | None = None, scale: float = 2, **kw) -> "Job":
         return self.submit("upscale_video", video=video, model=model, scale=scale, **kw)
 
-    def text_job(self, prompt: str | None = None, *, messages: list | None = None, **kw) -> "Job":
-        """Long text as a pausable job (pause keeps the partial text; resume continues it)."""
-        return self.submit("text", prompt=prompt, messages=messages, **kw)
+    def remove_background(self, image: Input, **kw) -> "Job":
+        """BiRefNet cut-out. Outputs: mask (white = subject), cutout (RGBA)."""
+        return self.submit("remove_background", image=image, **kw)
+
+    def depth(self, image: Input, *, resolution: int | None = None, **kw) -> "Job":
+        """Depth Anything 3. Outputs: depth (near = white), sky (white = sky)."""
+        return self.submit("depth", image=image, resolution=resolution, **kw)
+
+    def inpaint(self, image: Input, *, mask: Input | None = None, auto_mask: str | None = None,
+                grow: int | None = None, **kw) -> "Job":
+        """LaMa fill of mask (white = fill), or auto_mask="foreground" to remove the subject in one job."""
+        return self.submit("inpaint", image=image, mask=mask, auto_mask=auto_mask, grow=grow, **kw)
+
+    def text_job(self, prompt: str | None = None, *, messages: list | None = None,
+                 images: Iterable[Input] | None = None, json_schema: dict | None = None, **kw) -> "Job":
+        """Long text as a pausable job (pause keeps the partial text; resume continues it). images: the creative
+        planner can see them. json_schema: the answer is JSON matching it (enforced while decoding)."""
+        return self.submit("text", prompt=prompt, messages=messages, images=list(images) if images else None,
+                           json_schema=json_schema, **kw)
 
     def job(self, job_id: str) -> "Job":
         return Job(self, self.request("GET", f"/v1/jobs/{job_id}"))

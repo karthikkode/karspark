@@ -16,9 +16,11 @@ import uuid
 import httpx
 
 from .loopguard import LoopGuard
+from .service import response_format, user_message
 from .policy import family
 
 POLL_S = 1.0
+FAST_POLL_S, FAST_POLL_FOR_S = 0.1, 5.0
 LOST_AFTER_S = 30
 
 
@@ -85,8 +87,11 @@ class Workers:
         elif r.status_code != 202:
             return {"state": "lost", "error": f"adapter said {r.status_code}: {r.text[:500]}"}
         last_ok, last_progress = time.monotonic(), None
+        started = last_ok
         while True:
-            await asyncio.sleep(POLL_S)
+            # poll fast for the first seconds: cut-outs, depth and fills finish in ~1 s, and a 1 s poll would leave
+            # the GPU idle for half of each one in a batch of hundreds
+            await asyncio.sleep(min(FAST_POLL_S, POLL_S) if time.monotonic() - started < FAST_POLL_FOR_S else POLL_S)
             if run.command and jid not in self.signalled:
                 await self.signal(run)
             try:
@@ -135,9 +140,13 @@ class Workers:
         if not messages:
             if params.get("system"):
                 messages.append({"role": "system", "content": params["system"]})
-            messages.append({"role": "user", "content": params.get("prompt", "")})
-        body = {k: v for k, v in params.items() if k not in ("messages", "prompt", "system", "model", "reasoning_effort")}
+            images = [self.jobs.dir(jid) / "in" / n for n in (job.get("inputs") or {}).get("images") or []]
+            messages.append(user_message(params.get("prompt", ""), images))
+        body = {k: v for k, v in params.items()
+                if k not in ("messages", "prompt", "system", "model", "reasoning_effort", "json_schema")}
         body.update({"model": eng.served_name or job["model"], "stream": True, "messages": messages})
+        if params.get("json_schema") is not None:
+            body["response_format"] = response_format(params["json_schema"])
         if params.get("reasoning_effort") in ("none", "off"):
             body.setdefault("chat_template_kwargs", {})["enable_thinking"] = False
         elif params.get("reasoning_effort"):

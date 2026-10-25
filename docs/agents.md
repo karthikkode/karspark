@@ -17,7 +17,9 @@ The MCP server sends a short version of this page as its `instructions` on conne
    the scheduler can run jobs for the already-loaded model first (up to 3 skips per job) and avoid 30–60 s
    weight swaps. Submit with `wait_s=0` (MCP) or no `wait` (HTTP), then `wait_job` each one.
 4. **Plan by model family:** all FLUX images, then all layer splits, then all LTX videos, then all SeedVR2
-   upscales. Interleaving them (image, video, image, video) forces a swap each time.
+   upscales. Interleaving them (image, video, image, video) forces a swap each time. The small models
+   (`esrgan-*`, `remove_background`, `estimate_depth`, `inpaint_image`) never swap: mix them freely with images.
+   Narration (`generate_speech`) is a family of its own: do all of it in one batch.
 5. **Draft cheap, finish expensive.** Iterate on small images (`832x1216` or less), the default 12 steps,
    and 2–3 s clips at 768x512. Upscale or refine only what the user keeps. Fix the `seed` when only the
    prompt changes, so differences come from the prompt.
@@ -37,7 +39,12 @@ The MCP server sends a short version of this page as its `instructions` on conne
     answers, and on long prose that can take many minutes: submit long writing as a text job
     (`generate_text(as_job=true)` on MCP; it survives pauses and mode switches), or pass `reasoning_effort="none"` when you want only the text.
     `progress.reasoning_chars` shows the thinking as it grows.
-12. **Videos are silent; voices come from TTS.** `audio="sfx"` adds sound effects only; the video model never
+12. **Ask for JSON, plan in parallel.** `generate_text(json_schema=...)` returns JSON that matches the schema
+    (enforced while decoding, so no repair loop). The creative planner serves 4 requests at once: write the
+    outline first, then the scenes as parallel calls, and start generating images for the first scenes while
+    the rest are still being written. `images=[...]` lets the planner look at a keyframe and check it against
+    the brief (wrong era, wrong character), so you regenerate only the misses.
+13. **Videos are silent; voices come from TTS.** `audio="sfx"` adds sound effects only; the video model never
     makes music or voices. For narration or dialogue use `generate_speech` (IndexTTS-2.5, built-in
     `narrator-male` or a cloned clip) and mux it onto the video. Music is never generated.
 
@@ -110,6 +117,21 @@ once real runs exist.
 6. Upscale the approved shots last (`upscale_video`), in one batch. For anime, `model="esrgan-anime", scale=3`
    takes LTX's 1280x704 to 3840x2112 (4K width) with clean lines; `esrgan-animevideo` is ~4x faster and a little
    softer (the fast 4K path); SeedVR2 adds photographic texture to flat shading.
+
+**2.5D storytelling: motion from stills, no video model** (~11 min of GPU per minute of film against ~40;
+lessons.md has the benchmark).
+1. Plan with `generate_text(json_schema=...)`: a world bible (era, places, palette, things that must never
+   appear) and a shot list where every shot has a framing (wide, medium, close-up, establishing) and a pose.
+2. Keyframes with `generate_image(model="flux3-klein")`; pass a crop of the character sheet, not the whole
+   sheet (klein copies the layout of its reference). Check each one with `generate_text(images=[kf], ...)`.
+3. Per keyframe: `upscale_image(model="esrgan-anime", scale=2)`, then on the upscaled file
+   `remove_background` (the character layer: `mask` + `cutout`), `estimate_depth` (the parallax map;
+   near = white) and `inpaint_image(auto_mask="foreground")` (the clean background behind the characters).
+   Reuse the upscale's output `file_id` as the input; nothing needs uploading. LaMa's fill is soft on big
+   holes, which is fine behind a character that only sways; for big camera moves or reveals, use a
+   `flux3-klein` edit instead ("image 1 with every person removed, same framing").
+4. Animate on your side (camera moves, depth parallax, breathing, effects) and mux the narration from
+   `generate_speech`. ~10 % hero shots can go to `generate_video` for real action.
 
 **Bulk generation from a service (HTTP or SDK).** Use a `batch` key, P3, a webhook and an idempotency key
 per item (for example `"<dataset>-<row>-v1"`). Submit the whole set; karspark spreads it over idle time.

@@ -68,7 +68,8 @@ async def test_tools_status_text_and_image(served):
         names = {t.name for t in (await s.list_tools()).tools}
         assert {"generate_text", "generate_image", "generate_speech", "split_layers", "upscale_image", "generate_video", "upscale_video",
                 "get_job", "wait_job", "pause_job", "resume_job", "cancel_job", "set_priority", "status", "list_jobs",
-                "queue", "job_events", "list_models", "usage", "recent_requests", "request_mode", "upload_file"} <= names
+                "queue", "job_events", "list_models", "usage", "recent_requests", "request_mode", "upload_file",
+                "remove_background", "estimate_depth", "inpaint_image"} <= names
         st = await s.call_tool("status", {})
         data = json.loads(st.content[0].text)
         assert data["mode"]["current"] == "coding" and data["you"]["tier"] == "owner"

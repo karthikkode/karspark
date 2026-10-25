@@ -36,10 +36,13 @@ with `wait_job`.
 
 | tool | defaults |
 |---|---|
-| `generate_text(prompt, system?, max_tokens?, reasoning_effort?, temperature?, model="text", priority?, as_job=false, wait_s=50, idempotency_key?)` | the loaded text model; returns `{text, reasoning, usage}`. No cap unless you pass `max_tokens`; gives up after 10 min. `as_job=true` runs it as a text job instead (pausable, no time limit, answer in `outputs[0].text`) |
+| `generate_text(prompt, system?, max_tokens?, reasoning_effort?, temperature?, model="text", images?, json_schema?, priority?, as_job=false, wait_s=50, idempotency_key?)` | the loaded text model; returns `{text, reasoning, usage}`. No cap unless you pass `max_tokens`; gives up after 10 min. `as_job=true` runs it as a text job instead (pausable, no time limit, answer in `outputs[0].text`). `json_schema` (a JSON Schema object): the answer is JSON matching it, enforced while decoding. `images` (file_id/base64): the creative planner sees them |
 | `generate_image(prompt, size?, reference_images?, loras?, steps?, seed?, turbo=true, model?, priority?, wait_s=50)` | FLUX.2 + Turbo LoRA, 12 steps; `model="flux3-klein"` is ~3.5x faster (references leak into every image; no "painterly"/"watercolor"/"texture" in prompts) |
 | `split_layers(image, layers=4, prompt?, resolution?, seed?, priority?, wait_s=50)` | Qwen-Image-Layered |
 | `upscale_image(image, model="seedvr2-7b", scale=2, prompt?, loras?, priority?, wait_s=50)` | also `seedvr2-7b-sharp`, `seedvr2-3b`, `flux2-refine`, `esrgan-anime` |
+| `remove_background(image, priority?, wait_s=50)` | BiRefNet: two files, `mask` (white = subject) and `cutout` (RGBA). The character layer for 2.5D |
+| `estimate_depth(image, resolution=1008, priority?, wait_s=50)` | Depth Anything 3 mono-large: `depth` (near = white, sky at the far end) and `sky` (white = sky), at the input size |
+| `inpaint_image(image, mask?, auto_mask?, grow=16, priority?, wait_s=50)` | LaMa: fills `mask` (white = fill), or `auto_mask="foreground"` removes the subject in one job (the clean background behind the characters). Soft on big holes; a `flux3-klein` edit fills big reveals better |
 | `generate_video(prompt, first_frame?, last_frame?, duration=5, size="1280x720", fps=24, audio="none", seed?, priority?, wait_s=50)` | LTX-2.5; the frames choose t2v, i2v or first-to-last; `audio="sfx"` for sound effects only |
 | `upscale_video(video, model="seedvr2-3b", scale=2, priority?, wait_s=50)` | SeedVR2 (`seedvr2-7b` for hero shots); `esrgan-anime` for anime: clean lines, fast, `scale=3` takes 720p to 4K (clips under ~8 s); `esrgan-animevideo` ~10x faster, softer |
 | `generate_speech(text, voice="narrator-male", lang="EN", pause_ms=600, seed?, priority?, wait_s=50)` | IndexTTS-2.5 → WAV (22.05 kHz mono). `voice` is a built-in name or the `file_id` of a clip to clone. The only source of voices: videos stay silent, so mux the narration on afterwards |
@@ -78,6 +81,7 @@ and when the status changes (coalesced to at most one a second).
 
 1. `generate_text` to plan the shots (the planner LLM is always loaded in creative mode).
 2. `upload_file` for the character sheet → `generate_image(prompt, reference_images=[file_id])`.
-3. `split_layers(image=<output url>)` for parallax, `upscale_image(..., model="flux2-refine")` for finals.
+3. For parallax: `remove_background`, `estimate_depth` and `inpaint_image(auto_mask="foreground")` on the
+   image (or `split_layers` for Qwen-Image-Layered's RGBA layers); `upscale_image(..., model="flux2-refine")` for finals.
 4. `generate_video(prompt, first_frame=<start>, last_frame=<end>)`, which returns a job, then `wait_job` until done.
 5. Need the GPU for something urgent? `pause_job` the video, and `resume_job` later. Nothing is lost.

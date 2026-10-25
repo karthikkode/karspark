@@ -22,7 +22,10 @@ INPUTS = {  # job kind -> input name -> (media type, list?)
     "upscale_image": {"image": ("image", False)},
     "upscale_video": {"video": ("video", False)},
     "speech": {"voice": ("audio", False)},
-    "text": {},
+    "remove_background": {"image": ("image", False)},
+    "depth": {"image": ("image", False)},
+    "inpaint": {"image": ("image", False), "mask": ("image", False)},
+    "text": {"images": ("image", True)},
 }
 
 

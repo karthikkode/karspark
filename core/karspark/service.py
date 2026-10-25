@@ -3,11 +3,14 @@ status, queue, models, usage. Ownership and tier rules are enforced here, once."
 from __future__ import annotations
 
 import asyncio
+import base64
 import time
+from pathlib import Path
 
 import httpx
 
 from .api_common import INPUTS, check_webhook, default_model, job_view, new_seed, validate_media, workflows
+from .files import sniff
 from .jobs import FINAL, JobError, new_id
 
 CONTROL = {"type", "kind", "priority", "webhook", "idempotency_key", "wait"}
@@ -51,6 +54,8 @@ class Service:
             model, _coding = k.sched.resolve_text_model(p, body.get("model") or "text")
             if not (params.get("prompt") or params.get("messages")):
                 raise JobError("prompt or messages is required")
+            if params.get("json_schema") is not None:
+                response_format(params["json_schema"])          # 400 now rather than a failed job later
         else:
             model = body.get("model") or default_model(kind)
             if model not in k.cfg.capability_models(kind):
@@ -221,7 +226,9 @@ class Service:
                 "serves": k.cfg.modes[cur].text, "modes": list(k.cfg.modes), "loaded": True,
                 "note": "whichever text model the current mode has loaded; never waits for a switch"}]
         defaults = {"image": default_model("image"), "layers": default_model("layers"), "video": default_model("video"),
-                    "upscale_image": default_model("upscale_image"), "upscale_video": default_model("upscale_video")}
+                    "upscale_image": default_model("upscale_image"), "upscale_video": default_model("upscale_video"),
+                    "remove_background": default_model("remove_background"), "depth": default_model("depth"),
+                    "inpaint": default_model("inpaint")}
         for model, rids in k.cfg.model_index.items():
             r = k.cfg.recipes[rids[0]]
             caps = [c for c in r.capabilities if c == "text" or model in k.cfg.capability_models(c)]
@@ -246,9 +253,30 @@ def default_model_list(cap):
     return workflows().MODELS.get(cap, [])
 
 
+def user_message(prompt: str, images: list[Path] | None = None) -> dict:
+    """The user turn; images (local files) go first as data URLs, the way vision models expect them."""
+    if not images:
+        return {"role": "user", "content": prompt}
+    parts = []
+    for path in images:
+        raw = path.read_bytes()
+        parts.append({"type": "image_url",
+                      "image_url": {"url": f"data:{sniff(raw[:64])[0]};base64,{base64.b64encode(raw).decode()}"}})
+    return {"role": "user", "content": parts + [{"type": "text", "text": prompt}]}
+
+
+def response_format(json_schema) -> dict:
+    """json_schema (a JSON Schema object) -> the OpenAI response_format vLLM enforces while decoding."""
+    if not isinstance(json_schema, dict):
+        raise JobError("json_schema must be a JSON Schema object")
+    return {"type": "json_schema", "json_schema": {"name": "answer", "schema": json_schema, "strict": True}}
+
+
 async def complete(k, p, prompt=None, system=None, messages=None, model="text", max_tokens=None,
-                   reasoning_effort=None, temperature=None, priority=None, timeout=600.0) -> dict:
-    """One non-streamed chat completion through the scheduler (MCP generate_text, the dashboard)."""
+                   reasoning_effort=None, temperature=None, priority=None, timeout=600.0, images=None,
+                   json_schema=None) -> dict:
+    """One non-streamed chat completion through the scheduler (MCP generate_text, the dashboard).
+    images: local image files for a vision model; json_schema: constrain the answer to that schema."""
     import uuid
 
     model, coding = k.sched.resolve_text_model(p, model or "text")
@@ -256,7 +284,7 @@ async def complete(k, p, prompt=None, system=None, messages=None, model="text", 
     if not msgs:
         if system:
             msgs.append({"role": "system", "content": system})
-        msgs.append({"role": "user", "content": prompt or ""})
+        msgs.append(user_message(prompt or "", images))
     prio = 0 if coding else p.effective_priority(parse_priority(priority))
     eng, s = await asyncio.wait_for(k.sched.acquire_text(p, model, prio, "mcp_" + uuid.uuid4().hex[:10], coding), timeout)
     try:
@@ -267,6 +295,8 @@ async def complete(k, p, prompt=None, system=None, messages=None, model="text", 
             body["temperature"] = float(temperature)
         if reasoning_effort:
             body["chat_template_kwargs"] = {"enable_thinking": reasoning_effort not in ("none", "off")}
+        if json_schema is not None:
+            body["response_format"] = response_format(json_schema)
         try:
             r = await k.http.post(eng.base_url + "/v1/chat/completions", json=body, timeout=timeout)
         except httpx.TimeoutException:

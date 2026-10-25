@@ -62,6 +62,10 @@ CASES = [
     ("video upscale seedvr2-7b", "upscale_video", {"model": "seedvr2-7b", "scale": 1.5}, {"video": CLIP}),
     ("video upscale esrgan-anime x3", "upscale_video", {"model": "esrgan-anime", "scale": 3}, {"video": CLIP}),
     ("video upscale esrgan-animevideo x4", "upscale_video", {"model": "esrgan-animevideo", "scale": 4}, {"video": CLIP}),
+    ("remove background birefnet", "remove_background", {}, {"image": R1}),
+    ("depth da3-mono-large", "depth", {"resolution": 504}, {"image": R1}),
+    ("inpaint lama, mask image", "inpaint", {"grow": 8}, {"image": R1, "mask": R2}),
+    ("inpaint lama, auto foreground", "inpaint", {"auto_mask": "foreground"}, {"image": R1}),
 ]
 SPEECH_CASES = [   # (label, params, inputs, should be rejected)
     ("speech narrator", {"text": "Once upon a time."}, {}, False),
