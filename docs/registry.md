@@ -64,14 +64,15 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
 
 ## Images
 
-Everything runs in Docker. Nothing is installed on the host except Docker itself.
+Everything runs in Docker. Nothing is installed on the host except Docker itself. Only the images below are on the
+box (cleaned 2026-10-25); delete an image when the recipe or core moves past it.
 
 | image | what | built from |
 |---|---|---|
 | `karspark/core:0.1.0-r20` | karspark-core (FastAPI, scheduler, MCP) + docker CLI | `core/Dockerfile` |
 | `karspark/comfyui:0.42.4-r14` | ComfyUI + torch 2.13 cu130 + karspark job adapter + pausable sampler nodes + IndexTTS-2.5 worker (own venv, transformers 4.52) | `engines/comfyui/Dockerfile` |
 | `karspark/vllm-salient:2026-10-14-77154ca6` | vLLM nightly + 14 Flash-Next patches | `engines/vllm-salient/upstream/Dockerfile` |
-| `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM | Docker Hub, pinned digest |
+| `vllm/vllm-openai@sha256:6ff5ff0d…` (v0.32.0) | stock vLLM, for the `qwen3-0.6b` test recipe only; not kept on the box, pulled when that recipe runs | Docker Hub, pinned digest |
 | `karspark/hf-cli:2.2.0-xet1.7.0` | model downloads | `engines/hf-cli/Dockerfile` |
 | `karspark/bench:4` | benchmark harness + planner bake-off | `bench/Dockerfile` |
 
