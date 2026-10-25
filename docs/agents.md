@@ -43,7 +43,10 @@ The MCP server sends a short version of this page as its `instructions` on conne
     (enforced while decoding, so no repair loop). The creative planner serves 4 requests at once: write the
     outline first, then the scenes as parallel calls, and start generating images for the first scenes while
     the rest are still being written. `images=[...]` lets the planner look at a keyframe and check it against
-    the brief (wrong era, wrong character), so you regenerate only the misses.
+    the brief (wrong era, wrong character), so you regenerate only the misses. Ask about concrete, visible things
+   with a schema ("ground surface: dirt / cobblestone / asphalt / ...", "painted road markings?"): asked
+   "anything modern?", the planner passed two keyframes with asphalt roads; asked about the road surface, it
+   caught both and passed the clean one. 2–4 s a check, on the planner, so it runs beside ComfyUI.
 13. **Videos are silent; voices come from TTS.** `audio="sfx"` adds sound effects only; the video model never
     makes music or voices. For narration or dialogue use `generate_speech` (IndexTTS-2.5, built-in
     `narrator-male` or a cloned clip) and mux it onto the video. Music is never generated.
@@ -94,10 +97,14 @@ Measured on the box where a number is given; the rest is measured in phase 0 and
 | `flux3-klein` keyframe with a reference image, 1280x704, in a batch | ComfyUI | 18 s each |
 | `flux3-klein` edit of a keyframe (e.g. remove the characters for a clean background) | ComfyUI | 19 s each |
 | `esrgan-anime` image ×2 (1280x704 → 2560x1408) | ComfyUI | ~2 s each |
+| `remove_background` / `estimate_depth` / `inpaint_image(auto_mask)` on a 2560x1408 keyframe | ComfyUI | 1.3 / 0.9 / 2.7 s; a batch of 36 mixed jobs ran in 60 s (1.66 s a job: no idle gap). They never evict the image model |
+| `generate_text(json_schema=..., images=[kf])` keyframe check | creative | 2–4 s (`reasoning_effort="none"`) |
+| `generate_text(json_schema=...)` scene plan, 3 shots | creative | 31 s alone; 4 in parallel in 40 s |
 | speech, IndexTTS-2.5 | ComfyUI | ~0.9 s per second of audio; ~53 s worker load on the first job |
 | `esrgan-anime` video ×3 (1280x704 → 3840x2112), ~5 s clip | ComfyUI | 205–224 s (r9) |
 | `esrgan-animevideo` video ×3, same clip (a little softer, the fast 4K path) | ComfyUI | 53–56 s (r11) |
 | **a narrated anime film, 720p** | all | **~40 min of GPU per minute of film** (5 min: 60 keyframes 63 min + 60 clips ~2 h + narration and planning); 4K adds ~45 min per minute |
+| **a 1-hour 2.5D anime film, 1080p (projected from the numbers above)** | all | **~7.5 h**: 525 keyframes 2.6 h, cut-out + depth + fill 0.7 h, upscales 0.3 h, face/pose variants ~0.7 h, ~10 % regenerations 0.3 h, 50 LTX hero shots 1.8 h, narration 0.7 h; planning and keyframe checks run on the planner beside ComfyUI |
 | **a narrated 2.5D anime film, 1080p** (keyframes animated by the caller: parallax, camera moves, effects; no video model) | all | **~11 min of GPU per minute of film** (9 min film: planning 36 min, narration 6, 78 keyframes 25, 78 backgrounds 25, upscales 5.5); the caller's matte, depth and compositing come on top. See lessons.md |
 | SeedVR2-3B video upscale ×2 | ComfyUI | ~300 s for a 3 s clip, 5× slower than generating it: upscale finals only |
 
@@ -118,8 +125,8 @@ once real runs exist.
    takes LTX's 1280x704 to 3840x2112 (4K width) with clean lines; `esrgan-animevideo` is ~4x faster and a little
    softer (the fast 4K path); SeedVR2 adds photographic texture to flat shading.
 
-**2.5D storytelling: motion from stills, no video model** (~11 min of GPU per minute of film against ~40;
-lessons.md has the benchmark).
+**2.5D storytelling: motion from stills, no video model** (~7.5 min of GPU per minute of film with these tools,
+against ~40 with LTX for every shot; lessons.md has the benchmark).
 1. Plan with `generate_text(json_schema=...)`: a world bible (era, places, palette, things that must never
    appear) and a shot list where every shot has a framing (wide, medium, close-up, establishing) and a pose.
 2. Keyframes with `generate_image(model="flux3-klein")`; pass a crop of the character sheet, not the whole

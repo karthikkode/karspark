@@ -137,6 +137,10 @@ Qwen-Image-Layered, and 40 GB for LTX-2.5.
 | `esrgan-animevideo` video ×3, same clips | 120–131 s on r10 (CPU lanczos), 53–56 s on r11 (GPU resize) |
 | `flux3-klein` edit with the keyframe as reference ("everyone removed" background), 2026-10-25 | 19 s each (78 in 24.8 min) |
 | `esrgan-anime` image ×2, 1280x704 → 2560x1408, 2026-10-25 | ~2 s each (156 in 5.5 min) |
+| `remove_background` (BiRefNet), 2560x1408, r15 | 1.2–1.3 s warm, 1.8 s cold |
+| `depth` (DA3 mono-large, resolution 1008), 2560x1408, r15 | 0.84–1.1 s warm, 1.4 s cold |
+| `inpaint` (LaMa, auto_mask foreground, includes the matte), 2560x1408, r15 | 2.6–2.8 s (3.1 s cold) |
+| 36 of those mixed, submitted at once | 60 s (1.66 s a job); `flux3-klein` stayed loaded (next keyframe 9 s) |
 
 The GPU ran at 82–90 C with the hottest ACPI zone at 90–97 C during back-to-back LTX clips. That run ended in a
 hard power-off (docs/lessons.md).

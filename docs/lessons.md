@@ -104,6 +104,15 @@ history at commit `f64547d`.
     on the other; plain BiRefNet was clean on both. BiRefNet only.
   - LaMa fills a character-sized hole with a soft smear. Fine behind a character that sways a few pixels;
     a big reveal needs the klein edit.
+  - On the GPU (r15, 2560x1408): matte 1.3 s, depth 0.9 s, LaMa fill with its own matte 2.7 s, against 19 s
+    for a klein background redraw. 36 mixed jobs back to back ran at 1.66 s a job, so core's 0.1 s poll leaves
+    no idle gap, and klein stayed loaded throughout.
+  - The planner (Qwen3.8-27B) sees images, but asked "anything modern in this 1900 village?" it passed two
+    keyframes with asphalt roads (one with a kerb and a street lamp, which I had missed too). Asked for the
+    ground surface from a list and whether there are painted lines, it caught both and passed the clean one.
+    Vision checks need concrete, visible questions.
+  - Parallel planning: one 3-shot scene plan with a JSON schema took 31 s; four at once took 40 s (3x the
+    throughput on the planner's 4 slots).
   - Weight files carry wrapper prefixes: the TorchScript big-lama keys start with `model.` and the ToonOut
     `.pth` (saved after `torch.compile`) with `_orig_mod.`. `convert-weights.sh` takes `STRIP=<prefix>`.
 - Restart ComfyUI after switching models, because it never evicts them.

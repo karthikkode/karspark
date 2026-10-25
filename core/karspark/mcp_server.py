@@ -29,12 +29,14 @@ INSTRUCTIONS = """karspark runs every model on the owner's DGX Spark behind one 
 Tools
 - Text: generate_text (model "text" = whatever is loaded; it never waits for a model switch). json_schema makes
   the answer schema-valid JSON (plans, shot lists); images lets the creative planner look (check a keyframe
-  against the brief). The planner serves 4 requests at once: plan long pieces in parallel chunks.
+  against the brief). Ask about concrete things you can see ("what is the road surface made of? painted lines?"),
+  not "anything out of period?", which it waves through. The planner serves 4 requests at once (4 scene plans
+  in ~40 s against ~31 s for one): plan long pieces in parallel chunks.
 - Images: generate_image (FLUX.2 + Turbo LoRA, 12 steps; model="flux3-klein" ~3.5x faster, but it copies reference images into every shot; for flux3-klein avoid 'painterly', 'watercolor' and 'texture' in its prompts (it paints them literally as blotchy brush strokes and paper grain); say 'smooth flat cel colours, crisp line art, no grain, no paper texture' instead), split_layers (Qwen-Image-Layered), upscale_image.
 - Video: generate_video (LTX-2.5; first_frame = image-to-video, first_frame + last_frame = first-to-last
   transition; silent unless audio="sfx", which adds sound effects only, never music or voices), upscale_video.
 - 2.5D (motion from stills, no video model): remove_background (character cut-out), estimate_depth
-  (parallax map), inpaint_image (auto_mask="foreground" = the clean background behind them). ~1 s each, and
+  (parallax map), inpaint_image (auto_mask="foreground" = the clean background behind them). 1-3 s each, and
   they stay loaded beside the image models, so mixing them with generate_image costs no weight swaps.
 - Speech: generate_speech (IndexTTS-2.5): text -> narration WAV, built-in voice "narrator-male" or your own
   3-15 s clip as voice. This is the only source of voices: videos never get speech from the video model.
