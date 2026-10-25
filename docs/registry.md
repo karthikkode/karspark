@@ -9,8 +9,8 @@ jobs, files, `/mcp`, `/ui`. Auth: a project key (`Authorization: Bearer <key>`).
   is stopped by `loopguard.py`.
 - **Creative mode** ran end to end on the GPU: every media tool, pause/resume, cancel, preemption, text-job
   pause, MCP over HTTP. Planner bake-off: **qwen3.8-27b stays** (tool steps 18/18 vs Glimmer 12/18).
-- **Open issue:** the box hard-powers-off under sustained GPU load (twice: 2026-10-23 16:05, 2026-10-24 01:49 on
-  an LTX video run). It's a known GB10 defect (docs/lessons.md, `~/dgx-spark-crash/`). Fixes: the clock cap
+- **Resolved issue:** the box hard-powered-off under sustained GPU load (twice: 2026-10-23 16:05, 2026-10-24 01:49 on
+  an LTX video run). It's a known GB10 defect (docs/lessons.md); the support case is closed. Fixes: the clock cap
   `host/gb10-clock-cap.service` (**installed** 2026-10-24) and core r15's thermal guard (deployed).
 
 ## Service

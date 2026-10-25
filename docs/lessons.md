@@ -39,7 +39,7 @@ history at commit `f64547d`.
 - **Hard power-off under video load (GB10 defect).** The box died with no log twice in 34 h: 2026-10-23 16:05,
   and 2026-10-24 01:49 on clip 16 of a 60-clip LTX run (about 2 min of full load per clip, 30 s gaps). No
   panic, Xid, thermal or OOM message; the journal stopped mid-flight and the box stayed off until
-  power-cycled. The 1 s telemetry (`~/dgx-spark-crash/telemetry`) ended at GPU 82 C / 70 W / 96 %, hottest
+  power-cycled. The 1 s telemetry logger (since removed) ended at GPU 82 C / 70 W / 96 %, hottest
   ACPI zone 93 C; that night peaked at zone 97.5 C, GPU 90 C. This is the known GB10 thermal hard cut. Fixes:
   - `host/gb10-clock-cap.service`: `nvidia-smi -lgc 300,2200`, which removed it for others at a cost of
     about 5-9 %.
@@ -121,9 +121,9 @@ history at commit `f64547d`.
 - **2026-10-23, the first live creative run.** After about 30 min of back-to-back GPU jobs (96% use,
   83–89 °C, 70–85 W), the box **powered off hard** at 16:04:46. No log, panic, OOM or Xid; memory was
   84 of 121 GiB. It matches public reports of GB10 units powering off under sustained load, on this kernel
-  and driver. Evidence and the support-case draft are in `~/dgx-spark-crash/`, made outside this repo.
-  Until it is resolved, don't run long, unattended, back-to-back heavy media batches. If it happens again,
-  note the time and leave the `gpu-telemetry` logger running.
+  and driver. The support case is closed (2026-10-25); its folder and 1 s telemetry logger were removed.
+  The clock cap and core's thermal guard are the fix. If it happens again, note the time; core's
+  `resource_samples` (10 s) in `~/data/logs.db` hold the temperatures and power before it.
 - **Desktop software updates break GPU containers until the CDI spec is regenerated.** An update moved
   `libnvidia-egl-wayland` from 1.1.21 to 1.1.23 while the box was up. `/var/run/cdi/nvidia.yaml` still
   listed the old file, so every new `--gpus` container failed with "failed to fulfil mount request".

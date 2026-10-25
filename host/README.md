@@ -23,5 +23,5 @@ ssh spark 'nvidia-smi -q -d CLOCK | grep -A2 -i "clocks event\|locked"; nvidia-s
 ```
 
 Revert: `ssh -t spark 'sudo systemctl disable --now gb10-clock-cap'` (ExecStop restores the stock clocks).
-If it powers off again with the cap, step down to 2100, then 2000, and open an NVIDIA/MSI support case
-with `~/dgx-spark-crash/collect-support-bundle.sh`.
+If it powers off again with the cap, step down to 2100, then 2000, and open an NVIDIA/MSI support case with
+the journal of the previous boot (`journalctl -b -1`) and core's `resource_samples` from `~/data/logs.db`.
