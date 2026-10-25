@@ -80,6 +80,23 @@ history at commit `f64547d`.
   soft look. Same seeds: int8 weights instead of NVFP4, 2.3 MP instead of 0.9 MP, and 28 steps instead of 16 all
   kept the texture. Dropping those words and asking for "smooth flat cel colours, crisp line art, no grain, no
   paper texture" removed it.
+- **2.5D storytelling instead of a video model (benchmark, 2026-10-25).** A narrated 8 min 55 s anime film at
+  1080p, 78 shots, made from still keyframes animated outside the box: per-shot depth parallax, camera moves,
+  cut-out characters that breathe and sway, particle effects. The caller's code, not karspark, does the matte,
+  depth and compositing. Measured: GPU 97 min (planning 36, narration 6, keyframes 25, backgrounds 25, upscales
+  5.5), laptop CPU 45 min for isnet-anime mattes and Depth-Anything-V2-Small depth, render 10 min. About 2.5 h
+  for 9 min against ~39 h an hour for the LTX pipeline at 1080p.
+  - A clean background for parallax is a `flux3-klein` edit with the keyframe as image 1 ("every person and
+    creature removed: the same place, the same camera framing..."). Klein kept the framing exactly; use it only
+    behind the characters (a dilated, feathered hole) and keep the keyframe everywhere else.
+  - Klein's reference leak (above) shows up as the same pose and framing in nearly every shot: the character
+    stands centred, facing the camera. Give each shot a framing and pose, and pass a crop of the sheet, not the
+    whole sheet.
+  - Setting drift: one keyframe of a period story had a modern asphalt road. Name the era and the things that
+    must never appear in every prompt.
+  - Planning was the slowest single step (one huge JSON in a single pass). Plan in levels and in parallel.
+  - Projection for a 1-hour film: ~17 h as run; ~7.5–9 h with chunked planning, matte and depth on the GPU,
+    inpainting instead of full background redraws, and ~10 % LTX hero shots. 4K isn't worth it here.
 - Restart ComfyUI after switching models, because it never evicts them.
 - Don't symlink model files into the HF cache. When the cache was cleaned, the default model silently broke.
 
